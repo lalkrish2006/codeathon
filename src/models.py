@@ -38,11 +38,20 @@ class MLPrediction(BaseModel):
     confidence: float = Field(..., ge=0.0, le=1.0)
     explanation: str
 
+class LLMAnalysis(BaseModel):
+    detected_category: PackageType
+    intent: str
+    is_false_positive: bool # e.g. "Model Kit" vs "Real"
+    urgency_modifier: float = 0.0 # -0.5 to +0.5
+    new_keywords: List[str] = [] # For adaptive ML
+    reasoning: str
+
 class DecisionLog(BaseModel):
     package_id: str
     final_priority_score: int  # 1 (Highest) to 10 (Lowest)
     decision_source: str       # "ETHICAL_RULE" or "ML_MODEL"
     ethical_category: EthicalCategory
     ml_prediction: Optional[MLPrediction] = None
+    llm_analysis: Optional[LLMAnalysis] = None
     reasoning: str
     timestamp: datetime = Field(default_factory=datetime.now)

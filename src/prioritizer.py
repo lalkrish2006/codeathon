@@ -1,50 +1,71 @@
-from src.models import PackageInput, DecisionLog, EthicalCategory
+from src.models import PackageInput, DecisionLog, EthicalCategory, PackageType
 from src.ethical_engine import EthicalEngine
 from src.ml_engine import ContextClassifier
 from src.llm_processor import LLMInterpreter
 import datetime
 
 class DeliveryPrioritizer:
-    def __init__(self, llm_api_key: str = None):
+    def __init__(self, llm_api_key: str = "AIzaSyAFXRsmgCOrLdz_0KEOJhVEmkRy4YB1Gx8"):
         self.ethical_engine = EthicalEngine()
         self.ml_model = ContextClassifier()
         self.llm = LLMInterpreter(api_key=llm_api_key)
 
     def prioritize(self, package: PackageInput) -> DecisionLog:
-        # 1. Optional LLM Enrichment (for logging/clarity, not final decision logic mainly)
-        # In a real system, this might feed into the ML model as a structured feature
-        prediction_context = self.llm.enrich_context(package)
-        
-        # 2. Ethical Engine Check (First pass - Highest Authority)
+        # 1. Ethical Engine Check (Highest Authority)
         ethical_decision = self.ethical_engine.evaluate(package)
+        
+        # 2. LLM Analysis (Always run for potential enrichment & False Positive check)
+        # Note: In a high-throughput system, you might skip this for obvious cases, 
+        # but here we need it for the "False Positive" check against rigid rules.
+        llm_analysis = self.llm.analyze_context(package)
+        
+        # 3. Adaptive Learning Step
+        # If LLM found new keywords, feed them back to ML engine
+        if llm_analysis.new_keywords:
+            # Only update if we are fairly confident or if category matches
+            # For prototype, we update immediately.
+             self.ml_model.update_model(llm_analysis.new_keywords, llm_analysis.detected_category)
+
+        # 4. Handle Ethical Conflict (Rule vs False Positive)
         if ethical_decision:
-            # Rule triggered! Return immediate decision.
-            return ethical_decision
+            if llm_analysis.is_false_positive:
+                 # Override Rule!
+                 pass 
+            else:
+                 # Attach the LLM analysis to the decision log for completeness/audit
+                 ethical_decision.llm_analysis = llm_analysis
+                 if llm_analysis.new_keywords:
+                     ethical_decision.reasoning += f" [Adaptive] Learned: {llm_analysis.new_keywords}"
+                 return ethical_decision
 
-        # 3. ML Contextual Classification (Second pass)
+        # 5. ML Contextual Classification (Now potentially using updated weights!)
         ml_prediction = self.ml_model.predict(package)
+        
+        # 6. Hybrid Refinement
+        final_urgency = ml_prediction.urgency_score + llm_analysis.urgency_modifier
+        final_urgency = max(0.0, min(1.0, final_urgency))
+        
+        final_score = 10 
+        if final_urgency > 0.85: final_score = 3
+        elif final_urgency > 0.65: final_score = 4
+        elif final_urgency > 0.45: final_score = 5
+        elif final_urgency > 0.25: final_score = 7
+        
+        reasoning = f"Hybrid Logic: ML({ml_prediction.predicted_category.value}, {ml_prediction.urgency_score}) + LLM({llm_analysis.intent}, mod={llm_analysis.urgency_modifier}). "
+        
+        if llm_analysis.new_keywords:
+            reasoning += f" [Adaptive] Learned: {llm_analysis.new_keywords}"
+            
+        if llm_analysis.is_false_positive:
+            reasoning = "OVERRIDE: Ethical Engine bypassed due to LLM False Positive detection. " + reasoning
 
-        # 4. Final Priority Calculation pipeline
-        # Map ML urgency/harm scores to priority tiers (3-10)
-        # 1-2 are reserved for Ethical Engine
-        
-        final_score = 10 # Default Lowest priority
-        
-        if ml_prediction.urgency_score > 0.8 or ml_prediction.harm_score > 0.8:
-            final_score = 3
-        elif ml_prediction.urgency_score > 0.6:
-            final_score = 4
-        elif ml_prediction.urgency_score > 0.4:
-            final_score = 5
-        elif ml_prediction.urgency_score > 0.2:
-            final_score = 7
-        
         return DecisionLog(
             package_id=package.id,
             final_priority_score=final_score,
-            decision_source="ML_CONTEXTUAL_MODEL",
+            decision_source="HYBRID_ADAPTIVE_AI",
             ethical_category=EthicalCategory.STANDARD,
             ml_prediction=ml_prediction,
-            reasoning=f"Standard Delivery. ML classified as {ml_prediction.predicted_category.value}. {ml_prediction.explanation} Context: {prediction_context}",
+            llm_analysis=llm_analysis,
+            reasoning=reasoning,
             timestamp=datetime.datetime.now()
         )
