@@ -1,7 +1,8 @@
 from src.models import PackageInput
 from src.prioritizer import DeliveryPrioritizer
 
-prioritizer = DeliveryPrioritizer(llm_api_key="YOUR_REAL_API_KEY")  # Replace with your real key
+# Note: The ID uses the default key "AIzaSyAFXRsmgCOrLdz_0KEOJhVEmkRy4YB1Gx8" as requested
+prioritizer = DeliveryPrioritizer()
 
 pkg = PackageInput(
     id="TEST_GEMINI",
@@ -10,5 +11,10 @@ pkg = PackageInput(
     recipient_type="hospital"
 )
 
+print("Starting Prioritization (Expecting Gemini API Call)...")
 decision = prioritizer.prioritize(pkg)
-print("LLM Analysis Output:", decision.llm_analysis)
+print(f"[INFO] Final Priority: {decision.final_priority_score}")
+print(f"[INFO] Decision Source: {decision.decision_source}")
+print(f"[INFO] LLM Intent: {decision.llm_analysis.intent}")
+print(f"[INFO] New Keywords Found: {decision.llm_analysis.new_keywords}")
+print("[INFO] LLM Analysis Output:", decision.llm_analysis)

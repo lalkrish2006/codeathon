@@ -5,7 +5,7 @@ from src.llm_processor import LLMInterpreter
 import datetime
 
 class DeliveryPrioritizer:
-    def __init__(self, llm_api_key: str = "AIzaSyAFXRsmgCOrLdz_0KEOJhVEmkRy4YB1Gx8"):
+    def __init__(self, llm_api_key: str = "AIzaSyBEnIgTnIZs6b2_yFGnhPOiFVpwENZZ1d4"):
         self.ethical_engine = EthicalEngine()
         self.ml_model = ContextClassifier()
         self.llm = LLMInterpreter(api_key=llm_api_key)
