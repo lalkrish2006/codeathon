@@ -55,3 +55,10 @@ class DecisionLog(BaseModel):
     llm_analysis: Optional[LLMAnalysis] = None
     reasoning: str
     timestamp: datetime = Field(default_factory=datetime.now)
+
+    # Phase 4 Extensions
+    confidence_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    requires_human_approval: bool = False
+    human_approved: Optional[bool] = None
+    sender_trust_score: float = Field(default=1.0, ge=0.0, le=1.0)
+    ai_models_used: List[str] = []

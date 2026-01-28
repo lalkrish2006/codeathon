@@ -5,7 +5,7 @@ import json
 # API Key - Hardcoded as per USER instructions for this script, 
 # or fetched from env/prioritizer default.
 # The user said "Replace the existing Gemini API key... API_KEY = ..."
-API_KEY = "AIzaSyBEnIgTnIZs6b2_yFGnhPOiFVpwENZZ1d4"
+API_KEY = "AIzaSyB53_7fH6tC1Cg32pDjIqx-6gXlQ0mMOpE"
 
 def verify_gemini_connection():
     url = f"https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key={API_KEY}"

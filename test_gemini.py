@@ -1,7 +1,7 @@
 from src.models import PackageInput
 from src.prioritizer import DeliveryPrioritizer
 
-# Note: The ID uses the default key "AIzaSyAFXRsmgCOrLdz_0KEOJhVEmkRy4YB1Gx8" as requested
+# Note: The ID uses the default key "AIzaSyB53_7fH6tC1Cg32pDjIqx-6gXlQ0mMOpE" as requested
 prioritizer = DeliveryPrioritizer()
 
 pkg = PackageInput(

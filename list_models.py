@@ -2,7 +2,7 @@ from google import genai
 import os
 
 # Use the same key as in the app
-api_key = "AIzaSyAFXRsmgCOrLdz_0KEOJhVEmkRy4YB1Gx8"
+api_key = "AIzaSyB53_7fH6tC1Cg32pDjIqx-6gXlQ0mMOpE"
 
 try:
     client = genai.Client(api_key=api_key, http_options={'api_version': 'v1'})
