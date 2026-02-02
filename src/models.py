@@ -62,3 +62,4 @@ class DecisionLog(BaseModel):
     human_approved: Optional[bool] = None
     sender_trust_score: float = Field(default=1.0, ge=0.0, le=1.0)
     ai_models_used: List[str] = []
+    misuse_flag: bool = False

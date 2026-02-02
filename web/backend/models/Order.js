@@ -17,10 +17,10 @@ const OrderSchema = new mongoose.Schema({
   trust_score_snapshot: { type: Number },
   ai_models_used: [{ type: String }],
   
-  status: { 
-    type: String, 
-    enum: ['pending', 'approved', 'rejected', 'dispatched', 'delivered'],
-    default: 'pending' 
+  status: {
+    type: String,
+    enum: ['CREATED', 'AI_ANALYZED', 'HUMAN_APPROVAL_REQUIRED', 'HUMAN_APPROVED', 'APPROVED_FOR_SELLER', 'PACKED', 'READY_FOR_PICKUP', 'IN_TRANSIT', 'DELIVERED', 'REJECTED'],
+    default: 'CREATED'
   }
 }, { timestamps: true });
 

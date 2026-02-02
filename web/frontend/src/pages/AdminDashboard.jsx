@@ -98,7 +98,7 @@ const AdminDashboard = () => {
                        </thead>
                        <tbody className="bg-white divide-y divide-gray-200">
                            {orders.map((order) => (
-                               <tr key={order._id} className={clsx("hover:bg-gray-50 transition-colors", order.requires_human_approval && order.status === 'pending' ? "bg-red-50" : "")}>
+                                   <tr key={order._id} className={clsx("hover:bg-gray-50 transition-colors", order.requires_human_approval && order.status === 'HUMAN_APPROVAL_REQUIRED' ? "bg-red-50" : "")}>
                                    <td className="px-6 py-4 whitespace-nowrap">
                                        <div className="flex items-center">
                                            <div className={clsx(
@@ -127,19 +127,19 @@ const AdminDashboard = () => {
                                    <td className="px-6 py-4 whitespace-nowrap">
                                        <span className={clsx(
                                            "px-2 inline-flex text-xs leading-5 font-semibold rounded-full",
-                                           order.status === 'approved' ? "bg-green-100 text-green-800" :
-                                           order.status === 'rejected' ? "bg-red-100 text-red-800" :
-                                           order.status === 'pending' ? "bg-yellow-100 text-yellow-800" :
+                                           (order.status === 'APPROVED_FOR_SELLER' || order.status === 'HUMAN_APPROVED') ? "bg-green-100 text-green-800" :
+                                           order.status === 'REJECTED' ? "bg-red-100 text-red-800" :
+                                           order.status === 'HUMAN_APPROVAL_REQUIRED' ? "bg-yellow-100 text-yellow-800" :
                                            "bg-gray-100 text-gray-800"
                                        )}>
                                            {order.status}
                                        </span>
-                                       {order.requires_human_approval && order.status === 'pending' && (
+                                       {order.requires_human_approval && order.status === 'HUMAN_APPROVAL_REQUIRED' && (
                                             <div className="text-xs text-red-600 font-bold mt-1">APPROVAL NEEDED</div>
                                        )}
                                    </td>
                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                       {order.requires_human_approval && order.status === 'pending' ? (
+                                       {order.requires_human_approval && order.status === 'HUMAN_APPROVAL_REQUIRED' ? (
                                            <div className="flex justify-end space-x-2">
                                                <button onClick={() => handleApproval(order._id, true)} className="text-green-600 hover:text-green-900 p-1 border border-green-200 rounded hover:bg-green-50">
                                                    <Check size={18} />

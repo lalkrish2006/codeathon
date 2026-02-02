@@ -7,6 +7,7 @@ const { Server } = require('socket.io');
 
 const authRoutes = require('./routes/auth');
 const orderRoutes = require('./routes/orders');
+const productRoutes = require('./routes/products');
 
 const app = express();
 const server = http.createServer(app);
@@ -40,6 +41,7 @@ io.on('connection', (socket) => {
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/products', productRoutes);
 
 // Database Connection
 mongoose.connect(process.env.MONGO_URI, {

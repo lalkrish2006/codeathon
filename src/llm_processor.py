@@ -44,6 +44,10 @@ class LLMInterpreter:
         - new_keywords: List of strings. Extract novel keywords not usually in standard lists but relevant here (e.g. "Vaccine", "Defibrillator", "Plaintiff").
         - reasoning: Brief explanation.
         """
+
+        import hashlib
+        prompt_hash = hashlib.md5(prompt.encode()).hexdigest()
+        print(f"[DEBUG] Invoking model='gemini-2.5-flash' with prompt_hash={prompt_hash}")
         
         url = f"https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key={self.api_key}"
         headers = {"Content-Type": "application/json"}

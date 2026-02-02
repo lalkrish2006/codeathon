@@ -5,6 +5,9 @@ import Login from './pages/Login';
 import CustomerDashboard from './pages/CustomerDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 
+import SellerDashboard from './pages/SellerDashboard';
+import DeliveryAgentDashboard from './pages/DeliveryAgentDashboard';
+
 // Protected Route Component
 const ProtectedRoute = ({ children, roles }) => {
   const { user, loading } = useAuth();
@@ -17,12 +20,7 @@ const ProtectedRoute = ({ children, roles }) => {
 };
 
 // Placeholder for Agent/Seller
-const Placeholder = ({ title }) => (
-    <div className="flex h-screen items-center justify-center text-2xl font-bold bg-gray-50">
-        {title} Coming Soon
-        <span className="text-sm font-normal text-gray-500 ml-2">(Phase 5 Extension)</span>
-    </div>
-);
+// REMOVED Placeholders
 
 function App() {
   return (
@@ -45,16 +43,17 @@ function App() {
             </ProtectedRoute>
           } />
           
-          {/* Seller/Agent Routes (Placeholders) */}
+          {/* Seller Route */}
           <Route path="/seller" element={
             <ProtectedRoute roles={['seller']}>
-               <Placeholder title="Seller Dashboard" />
+               <SellerDashboard />
             </ProtectedRoute>
           } />
           
+          {/* Delivery Agent Route */}
           <Route path="/agent" element={
             <ProtectedRoute roles={['delivery_agent']}>
-               <Placeholder title="Delivery Agent App" />
+               <DeliveryAgentDashboard />
             </ProtectedRoute>
           } />
 

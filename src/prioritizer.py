@@ -14,131 +14,142 @@ class DeliveryPrioritizer:
         self.approval_service = HumanApprovalService() # Phase 4
 
     def prioritize(self, package: PackageInput) -> DecisionLog:
-        # P4: Get Trust Score (Start)
+        # P4: Get Trust Score
         trust_score = self.trust_service.get_trust_score(package.sender)
         
-        # 1. Ethical Engine Check (Highest Authority)
-        ethical_decision = self.ethical_engine.evaluate(package)
-        
-        # 2. LLM Analysis (Always run for potential enrichment & False Positive check)
+        # 1. Run ML & LLM Analysis (Signals)
+        ml_prediction = self.ml_model.predict(package)
         llm_analysis = self.llm.analyze_context(package)
         
-        # 3. Adaptive Learning Step
+        # Debug Log for LLM Provider (Requested)
+        # Note: llm_processor logs to stdout, but we can add to reasoning or just print here
+        llm_provider = "Gemini-2.5-Flash" if self.llm.api_key else "Local-Mock-LLM"
+        print(f"[LLM] Provider used: {llm_provider}")
+
+        # Adaptive Learning
         if llm_analysis.new_keywords:
              self.ml_model.update_model(llm_analysis.new_keywords, llm_analysis.detected_category)
 
-        # 4. Handle Ethical Conflict (Rule vs False Positive)
-        if ethical_decision:
-            if llm_analysis.is_false_positive:
-                 # Override Rule!
-                 pass # Fall through to ML/Hybrid logic
-            else:
-                 # Ethical Rule Applied
-                 # P4: Calculate Confidence for Ethical Rule
-                 # Base confidence high for rules, adjusted by trust? 
-                 # Actually rules are absolute, so confidence is naturally high.
-                 confidence = 0.95
-                 
-                 # P4: Check Human Approval (Priority 1 or 2)
-                 requires_approval = ethical_decision.final_priority_score <= 2
-                 
-                 # Enrich the existing ethical_decision object
-                 ethical_decision.llm_analysis = llm_analysis
-                 ethical_decision.confidence_score = confidence
-                 ethical_decision.sender_trust_score = trust_score
-                 ethical_decision.requires_human_approval = requires_approval
-                 ethical_decision.ai_models_used = ["EthicalEngine", "Gemini-2.5-Flash"]
-                 
-                 if llm_analysis.new_keywords:
-                     ethical_decision.reasoning += f" [Adaptive] Learned: {llm_analysis.new_keywords}"
-                     
-                 # Explanation Format
-                 ethical_decision.reasoning = (
-                     f"Decision Explanation:\n"
-                     f"• Ethical Rule: {ethical_decision.reasoning}\n"
-                     f"• ML Prediction: N/A (Rule Override)\n"
-                     f"• Gemini Intent: {llm_analysis.intent}\n"
-                     f"• Confidence: {confidence}\n"
-                     f"• Action: {'Human approval required' if requires_approval else 'Auto-approved'}"
-                 )
-
-                 # Trigger approval Stub
-                 if requires_approval:
-                     self.approval_service.request_human_approval(ethical_decision)
-                     
-                 return ethical_decision
-
-        # 5. ML Contextual Classification
-        ml_prediction = self.ml_model.predict(package)
-        
-        # 6. Hybrid Refinement (adjusted by P4 Trust)
-        # Trust Impact: Lower trust reduces urgency slightly
+        # 2. Calculate BASE Priority (Hybrid ML + Trust)
         trust_modifier = 0.0
-        if trust_score < 0.5:
-            trust_modifier = -0.1
-        elif trust_score > 0.9:
-            trust_modifier = 0.05
-            
+        if trust_score < 0.5: trust_modifier = -0.1
+        elif trust_score > 0.9: trust_modifier = 0.05
+        
         final_urgency = ml_prediction.urgency_score + llm_analysis.urgency_modifier + trust_modifier
         final_urgency = max(0.0, min(1.0, final_urgency))
         
-        final_score = 10 
-        if final_urgency > 0.85: final_score = 3
-        elif final_urgency > 0.65: final_score = 4
-        elif final_urgency > 0.45: final_score = 5
-        elif final_urgency > 0.25: final_score = 7
+        # Map Urgency to Priority (10=Low, 1=High)
+        base_priority = 10 
+        if final_urgency > 0.85: base_priority = 3
+        elif final_urgency > 0.65: base_priority = 4
+        elif final_urgency > 0.45: base_priority = 5
+        elif final_urgency > 0.25: base_priority = 7
+
+        base_confidence = min(0.99, ml_prediction.confidence + (0.1 if llm_analysis.urgency_modifier * (ml_prediction.urgency_score - 0.5) > 0 else 0))
+        if trust_score < 0.4: base_confidence *= 0.8
+
+        # 3. Ethical Engine Check (FINAL AUTHORITY)
+        ethical_decision = self.ethical_engine.evaluate(package)
         
-        # P4: Confidence Calculation
-        # Simple weighted formula
-        # ML Confidence (0-1) + LLM Consistency?
-        # If ML and LLM agree on category/urgency -> High Confidence
-        # For prototype: Average of ML confidence and (1 - abs(ML_urgency - LLM_modifier))?
-        # Let's simplify: ML confidence is base. If LLM agrees, boost it.
-        # Actually LLM doesnt give a confidence score, but we can infer consistency.
+        final_decision_log = None
         
-        base_confidence = ml_prediction.confidence
-        consistency_bonus = 0.0
-        # If ML high urgency and LLM positive modifier -> Consistent
-        if ml_prediction.urgency_score > 0.5 and llm_analysis.urgency_modifier >= 0:
-            consistency_bonus = 0.1
-        elif ml_prediction.urgency_score < 0.5 and llm_analysis.urgency_modifier < 0:
-            consistency_bonus = 0.1
+        if ethical_decision:
+            # Check for False Positives (The ONLY exception to the Rule)
+            # Determine Source Label
+            source_label = "GEMINI+RULES" if "Gemini" in llm_provider else "HYBRID_ADAPTIVE_AI"
             
-        confidence = min(0.99, base_confidence + consistency_bonus)
-        if trust_score < 0.4: # Low trust penalizes confidence in the SOURCE
-             confidence *= 0.8
+            if llm_analysis.is_false_positive:
+                # LLM says "It's a model kit/toy", ignoring keyword match.
+                reasoning = (
+                    f"Decision Explanation:\n"
+                    f"• Ethical Rule Triggered: {ethical_decision.reasoning}\n"
+                    f"• OVERRIDE: Ethical Rule bypassed due to LLM False Positive detection ({llm_analysis.intent}).\n"
+                    f"• ML Prediction: {ml_prediction.predicted_category.value} -> Priority {base_priority}\n"
+                    f"• Action: Reverted to ML/Hybrid Priority."
+                )
+                
+                final_decision_log = DecisionLog(
+                    package_id=package.id,
+                    final_priority_score=base_priority,
+                    decision_source=source_label,
+                    ethical_category=EthicalCategory.STANDARD,
+                    reasoning=reasoning,
+                    ml_prediction=ml_prediction,
+                    llm_analysis=llm_analysis,
+                    confidence_score=base_confidence,
+                    requires_human_approval=(base_priority <= 2),
+                    sender_trust_score=trust_score,
+                    ai_models_used=["ContextClassifier", llm_provider]
+                )
+            else:
+                # ETHICAL OVERRIDE APPLIED
+                # Use the priority from Ethical Engine
+                override_reason = f"[Ethical Engine] Override applied: {ethical_decision.reasoning}"
+                
+                final_decision_log = ethical_decision
+                final_decision_log.ml_prediction = ml_prediction
+                final_decision_log.llm_analysis = llm_analysis
+                final_decision_log.confidence_score = 0.98 # Rules are high confidence
+                final_decision_log.sender_trust_score = trust_score
+                final_decision_log.ai_models_used = ["EthicalEngine", llm_provider]
+                final_decision_log.requires_human_approval = (final_decision_log.final_priority_score <= 2)
+                
+                final_decision_log.reasoning = (
+                    f"Decision Explanation:\n"
+                    f"• {override_reason}\n"
+                    f"• ML Context: {ml_prediction.predicted_category.value}\n"
+                    f"• Action: {'Human approval required' if final_decision_log.requires_human_approval else 'Auto-approved'}"
+                )
 
-        requires_approval = final_score <= 2 # Likely won't happen for hybrid unless score mappings change, but safest to dynamic
-        
-        reasoning = (
-             f"Decision Explanation:\n"
-             f"• Ethical Rule: None\n"
-             f"• ML Prediction: {ml_prediction.predicted_category.value} ({ml_prediction.urgency_score:.2f} urgency)\n"
-             f"• Gemini Intent: {llm_analysis.intent}\n"
-             f"• Trust Score: {trust_score:.2f}\n"
-             f"• Confidence: {confidence:.2f}\n"
-             f"• Action: {'Human approval required' if requires_approval else 'Auto-approved'}"
-        )
-        
-        if llm_analysis.is_false_positive:
-            reasoning = "OVERRIDE: Ethical Engine bypassed due to LLM False Positive detection. " + reasoning
+        else:
+            # No Ethical Rule -> Use Hybrid ML
+            reasoning = (
+                 f"Decision Explanation:\n"
+                 f"• Ethical Rule: None\n"
+                 f"• ML Prediction: {ml_prediction.predicted_category.value} ({ml_prediction.urgency_score:.2f} urgency)\n"
+                 f"• Gemini Intent: {llm_analysis.intent}\n"
+                 f"• Confidence: {base_confidence:.2f}\n"
+                 f"• Action: {'Human approval required' if base_priority <= 2 else 'Auto-approved'}"
+            )
+            
+            # Determine Source Label
+            source_label = "GEMINI+RULES" if "Gemini" in llm_provider else "HYBRID_ADAPTIVE_AI"
 
-        decision_log = DecisionLog(
-            package_id=package.id,
-            final_priority_score=final_score,
-            decision_source="HYBRID_ADAPTIVE_AI",
-            ethical_category=EthicalCategory.STANDARD,
-            ml_prediction=ml_prediction,
-            llm_analysis=llm_analysis,
-            reasoning=reasoning,
-            timestamp=datetime.datetime.now(),
-            confidence_score=confidence,
-            requires_human_approval=requires_approval,
-            sender_trust_score=trust_score,
-            ai_models_used=["ContextClassifier", "Gemini-2.5-Flash"]
-        )
-        
-        if requires_approval:
-             self.approval_service.request_human_approval(decision_log)
+            final_decision_log = DecisionLog(
+                package_id=package.id,
+                final_priority_score=base_priority,
+                decision_source=source_label,
+                ethical_category=EthicalCategory.STANDARD,
+                reasoning=reasoning,
+                ml_prediction=ml_prediction,
+                llm_analysis=llm_analysis,
+                confidence_score=base_confidence,
+                requires_human_approval=(base_priority <= 2),
+                sender_trust_score=trust_score,
+                ai_models_used=["ContextClassifier", llm_provider]
+            )
 
-        return decision_log
+        # Phase 2 Calibration: Medical Severity Dampening & Promotion
+        # Only apply if NOT flagged for misuse
+        if not getattr(final_decision_log, 'misuse_flag', False):
+            desc_lower = package.description.lower()
+            
+            # Calibration Rule 1: Downgrade for stability/backup
+            if any(kw in desc_lower for kw in ["stable", "daily support", "precaution", "backup"]):
+                print("DEBUG: Applying Calibration Rule 1")
+                final_decision_log.final_priority_score = min(10, final_decision_log.final_priority_score + 2)
+                final_decision_log.reasoning += "\n• [Calibration] Urgency downgraded (+2) due to stability/backup keywords."
+                final_decision_log.requires_human_approval = (final_decision_log.final_priority_score <= 2)
+
+            # Calibration Rule 2: Force Priority 1 for Critical/ICU
+            if any(kw in desc_lower for kw in ["icu", "oxygen saturation dropped", "immediate", "life-threatening"]):
+                final_decision_log.final_priority_score = 1
+                final_decision_log.confidence_score = 0.99
+                final_decision_log.requires_human_approval = True
+                final_decision_log.reasoning += "\n• [Calibration] CRITICAL CONDITION detected. Enforcing Priority 1."
+
+        # 4. Human Approval Stub
+        if final_decision_log.requires_human_approval:
+             self.approval_service.request_human_approval(final_decision_log)
+
+        return final_decision_log
