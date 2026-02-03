@@ -42,6 +42,7 @@ io.on('connection', (socket) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/products', productRoutes);
+app.use('/api/users', require('./routes/users')); // Phase 5 Location Updates
 
 // Database Connection
 mongoose.connect(process.env.MONGO_URI, {

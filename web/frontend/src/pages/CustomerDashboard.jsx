@@ -15,6 +15,10 @@ const CustomerDashboard = () => {
     const [quantity, setQuantity] = useState(1);
     const [context, setContext] = useState("");
     const [loading, setLoading] = useState(false);
+    
+    // Location State
+    const [locationMode, setLocationMode] = useState('gps'); // 'gps' or 'manual'
+    const [addressText, setAddressText] = useState("");
 
     const API_URL = 'http://localhost:5000/api';
 
@@ -61,19 +65,101 @@ const CustomerDashboard = () => {
         setContext("");
         setQuantity(1);
         setModalOpen(true);
+        // Reset location state
+        setLocationMode('gps');
+        setAddressText("");
+    };
+
+    const getGeoLocation = () => {
+        return new Promise((resolve, reject) => {
+            if (!navigator.geolocation) {
+                reject(new Error("Geolocation is not supported by your browser"));
+            } else {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        resolve({
+                            latitude: position.coords.latitude,
+                            longitude: position.coords.longitude,
+                            accuracy: position.coords.accuracy,
+                            source: "gps"
+                        });
+                    },
+                    (error) => {
+                        reject(error);
+                    }
+                );
+            }
+        });
+    };
+
+    const geocodeAddress = async (address) => {
+        try {
+            // Using OpenStreetMap Nominatim API (Free, rate limited)
+            const response = await axios.get(`https://nominatim.openstreetmap.org/search`, {
+                params: {
+                    q: address,
+                    format: 'json',
+                    limit: 1
+                }
+            });
+
+            if (response.data && response.data.length > 0) {
+                const { lat, lon, display_name } = response.data[0];
+                return {
+                    latitude: parseFloat(lat),
+                    longitude: parseFloat(lon),
+                    accuracy: 0, // Not applicable for geocoding
+                    source: "manual",
+                    address: display_name
+                };
+            } else {
+                throw new Error("Address not found");
+            }
+        } catch (error) {
+            console.error("Geocoding failed:", error);
+            throw new Error("Unable to locate this address. Please try a valid address or use GPS.");
+        }
     };
 
     const handleSubmitOrder = async (e) => {
         e.preventDefault();
         setLoading(true);
+        
         try {
+            // 1. Capture Location based on Mode
+            let locationData = null;
+            
+            try {
+                if (locationMode === 'gps') {
+                    locationData = await getGeoLocation();
+                } else {
+                    if (!addressText.trim()) throw new Error("Please enter a delivery address.");
+                    locationData = await geocodeAddress(addressText);
+                }
+            } catch (locErr) {
+                alert(locErr.message || "Location access is required for delivery.");
+                setLoading(false);
+                return; // Block submission
+            }
+
             const token = localStorage.getItem('token');
-            await axios.post(`${API_URL}/orders`, {
+            const payload = {
                 product_id: selectedProduct._id,
                 quantity: parseInt(quantity),
                 customer_context: context,
-                // user_id handled by backend from token
-            }, {
+                // Attach captured location
+                latitude: locationData.latitude,
+                longitude: locationData.longitude,
+                customer_location: {
+                    latitude: locationData.latitude,
+                    longitude: locationData.longitude,
+                    accuracy: locationData.accuracy,
+                    source: locationData.source,
+                    address: locationMode === 'manual' ? addressText : "GPS Location"
+                }
+            };
+
+            await axios.post(`${API_URL}/orders`, payload, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             
@@ -142,19 +228,38 @@ const CustomerDashboard = () => {
                                         <div className="flex items-center gap-2 mb-1">
                                             <h4 className="font-bold text-lg">{order.product_name}</h4>
                                             <span className={`px-2 py-0.5 rounded text-xs font-bold ${
-                                                order.ai_priority <= 2 ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'
+                                                ['DELIVERED', 'IN_TRANSIT'].includes(order.status) ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-600'
                                             }`}>
-                                                Priority {order.ai_priority}
+                                                {order.status.replace(/_/g, ' ')}
                                             </span>
                                         </div>
-                                        <p className="text-sm text-gray-600">Qty: {order.quantity} • Status: <span className="font-medium text-gray-800">{order.status.replace(/_/g, ' ')}</span></p>
-                                        <p className="text-xs text-gray-400 mt-2 bg-gray-50 p-2 rounded">{order.decision_explanation}</p>
+                                        <p className="text-sm text-gray-600 mb-2">Qty: {order.quantity}</p>
+                                        
+                                        {/* Pricing Breakdown (Phase 5 Transparency) */}
+                                        <div className="bg-slate-50 p-3 rounded border border-slate-100 text-sm w-full md:w-80">
+                                            {/* Base Price Display */}
+                                            <div className="flex justify-between text-gray-600 mb-1">
+                                                <span>Base Product Price</span>
+                                                <span>${(order.total_amount - (order.priority_fee || 0)).toFixed(2)}</span>
+                                            </div>
+
+                                            {/* Fee Display (Active or Waived) */}
+                                            {(order.priority_fee > 0 || order.fee_waived) && (
+                                                <div className="flex justify-between text-amber-700 font-medium mb-1">
+                                                    <span>Emergency Handling Fee</span>
+                                                    <span>{order.fee_waived ? '$0.00 (Waived)' : `$${order.priority_fee}`}</span>
+                                                </div>
+                                            )}
+                                            
+                                            <div className="flex justify-between border-t border-slate-200 pt-1 mt-1">
+                                                <span className="font-bold text-gray-800">Total Paid</span>
+                                                <span className="font-bold text-gray-900">${order.total_amount}</span>
+                                            </div>
+                                        </div>
                                     </div>
                                     <div className="flex flex-col items-end justify-center">
-                                        <span className="text-xs text-gray-500 mb-1">Confidence Score</span>
-                                        <div className="flex items-center gap-1 text-sm font-bold text-emerald-600">
-                                            <Star size={14} fill="currentColor" /> {(order.confidence_score * 100).toFixed(0)}%
-                                        </div>
+                                       {/* Internal Details Hidden for Customer */}
+                                        <span className="text-xs text-slate-400">Order ID: {order._id.slice(-6)}</span>
                                     </div>
                                 </div>
                             ))}
@@ -180,6 +285,57 @@ const CustomerDashboard = () => {
                                     onChange={e => setQuantity(e.target.value)}
                                     className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
                                 />
+                            </div>
+
+                            {/* Location Section */}
+                            <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                                <label className="block text-sm font-bold text-gray-800 mb-2">Delivery Location <span className="text-red-500">*</span></label>
+                                
+                                <div className="flex gap-2 mb-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => setLocationMode('gps')}
+                                        className={`flex-1 py-1.5 px-3 rounded text-sm font-medium border ${
+                                            locationMode === 'gps' 
+                                            ? 'bg-white border-blue-500 text-blue-600 shadow-sm' 
+                                            : 'bg-transparent border-transparent text-gray-500 hover:bg-gray-200'
+                                        }`}
+                                    >
+                                        📍 Use GPS
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setLocationMode('manual')}
+                                        className={`flex-1 py-1.5 px-3 rounded text-sm font-medium border ${
+                                            locationMode === 'manual' 
+                                            ? 'bg-white border-blue-500 text-blue-600 shadow-sm' 
+                                            : 'bg-transparent border-transparent text-gray-500 hover:bg-gray-200'
+                                        }`}
+                                    >
+                                        📝 Enter Address
+                                    </button>
+                                </div>
+
+                                {locationMode === 'manual' && (
+                                    <div className="mb-1">
+                                        <input
+                                            type="text"
+                                            placeholder="House No, Street, City, State"
+                                            value={addressText}
+                                            onChange={e => setAddressText(e.target.value)}
+                                            className="w-full border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                                            required={locationMode === 'manual'}
+                                        />
+                                        <p className="text-xs text-gray-400 mt-1">We'll find your location from this address.</p>
+                                    </div>
+                                )}
+                                
+                                {locationMode === 'gps' && (
+                                    <div className="text-xs text-gray-500 flex items-center gap-1">
+                                        <AlertCircle size={12} />
+                                        <span>We will capture your current device location securely.</span>
+                                    </div>
+                                )}
                             </div>
                             
                             <div>

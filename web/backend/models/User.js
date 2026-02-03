@@ -9,7 +9,23 @@ const UserSchema = new mongoose.Schema({
     enum: ['customer', 'seller', 'admin', 'delivery_agent'], 
     default: 'customer' 
   },
-  trust_score: { type: Number, default: 1.0 } // For sellers
+  trust_score: { type: Number, default: 1.0 }, // For sellers
+  
+  // New Phase 5 Fields - Location Routing
+  isAvailable: { type: Boolean, default: true },
+  location: {
+      type: { type: String, enum: ['Point'], default: 'Point' },
+      coordinates: { type: [Number], default: [0, 0] } // [Longitude, Latitude]
+  },
+  
+  // Phase 5 Enhanced: Live Tracking
+  live_location: {
+      latitude: { type: Number },
+      longitude: { type: Number },
+      last_updated: { type: Date }
+  }
 }, { timestamps: true });
+
+UserSchema.index({ location: '2dsphere' }); // Enable geospatial queries
 
 module.exports = mongoose.model('User', UserSchema);

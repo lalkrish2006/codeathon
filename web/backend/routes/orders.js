@@ -3,6 +3,7 @@ const router = express.Router();
 const Order = require('../models/Order');
 const User = require('../models/User'); // Need to fetch sender trust score if applicable
 const axios = require('axios');
+const PriorityService = require('../services/PriorityService'); // Phase 5 Routing
 
 const passport = require('passport');
 
@@ -12,7 +13,7 @@ const verifyToken = passport.authenticate('jwt', { session: false });
 // CREATE ORDER (Customer / Seller)
 router.post('/', verifyToken, async (req, res) => {
     try {
-        const { product_id, customer_context, quantity, user_id } = req.body;
+        const { product_id, customer_context, quantity, user_id, latitude, longitude, customer_location } = req.body;
         // user_id might come from req.body (if admin creates?) or req.user.id
         // Let's assume req.body.user_id is passed, or default to req.user.id
         const senderId = user_id || req.user.id;
@@ -31,54 +32,71 @@ router.post('/', verifyToken, async (req, res) => {
 
         // 3. Combine Descriptions for AI
         // "Product: {base_description}. Customer Context: {customer_description}"
-        const combinedDescription = `Product: ${product.base_description}. Customer Context: ${customer_context}`;
+        // Phase 5 Enhanced: Add Location Context
+        const locContext = customer_location ? `Customer Location: ${customer_location.city || 'Unknown'}, ${customer_location.state || ''}.` : '';
+        const combinedDescription = `Product: ${product.base_description}. Customer Context: ${customer_context}. ${locContext}`;
 
-        // 4. Call Python AI API
-        const payload = {
-            id: `ORD-${Date.now()}`,
-            description: combinedDescription,
-            sender: user.name, // Use user name as sender
-            recipient_type: "residential", // Default for customer app
-            metadata: { product: product.name, quantity: quantity, price: product.price }
+        // 4. Critical Category Logic Gate (Phase 5 Refinement)
+        // Hardcoded critical keywords since Product schema changes are restricted
+        const CRITICAL_KEYWORDS = ['medicine', 'medical', 'emergency', 'drug', 'pharmacy', 'health', 'aid', 'relief', 'urgent', 'doctor', 'hospital', 'mask', 'sanitizer', 'oxygen', 'injection', 'vaccine'];
+        
+        const productText = (product.name + " " + product.base_description).toLowerCase();
+        const isCriticalCategory = CRITICAL_KEYWORDS.some(kw => productText.includes(kw));
+
+        // Default: Skip AI for non-critical
+        let aiResponse = {
+            final_priority_score: 7, // Standard
+            confidence_score: 1.0,   // High confidence in rules
+            requires_human_approval: false,
+            decision_source: "RULE_ENGINE",
+            reasoning: "Automatically routed to Standard Delivery: Product is not in a Critical Category.",
+            ai_models_used: ["CategoryFilter"],
+            sender_trust_score: user.trust_score || 1.0,
+            ethical_category: "standard"
         };
+        
+        let shouldCallAI = isCriticalCategory;
 
-        // Health Check (New Requirement Phase 5)
-        try {
-             const healthUrl = process.env.PYTHON_API_URL.replace('/prioritize', '/health');
-             const healthRes = await axios.get(healthUrl, { timeout: 3000 });
-             console.log(`[Backend] [AI] Health Check OK: ${JSON.stringify(healthRes.data)}`);
-        } catch (hErr) {
-             console.warn(`[Backend] [AI] WARNING: AI Service Unreachable (Health Check Failed): ${hErr.message}`);
-        }
+        // If Critical, Call Python AI API
+        if (shouldCallAI) {
+            const payload = {
+                id: `ORD-${Date.now()}`,
+                description: combinedDescription,
+                sender: user.name, // Use user name as sender
+                recipient_type: "residential", // Default for customer app
+                metadata: { product: product.name, quantity: quantity, price: product.price }
+            };
 
-        let aiResponse = {};
-        try {
-            console.log(`[Backend] Calling Python AI`, payload);
-            const response = await axios.post(process.env.PYTHON_API_URL, payload, { timeout: 10000 });
-            aiResponse = response.data;
-            console.log(`[Backend] AI Response: Priority ${aiResponse.final_priority_score}`);
-        } catch (err) {
-            console.error("[Backend] AI Service Failed:", err.message);
-            if (err.response) {
-                console.error("[Backend] AI Error Status:", err.response.status);
-                console.error("[Backend] AI Error Data:", JSON.stringify(err.response.data));
-            } else if (err.code === 'ECONNABORTED') {
-                 console.error("[Backend] AI Request Timed Out (10s limit)");
-            } else if (err.request) {
-                 console.error("[Backend] AI No Response received (Connection Refused/Unknown)");
+            // Health Check (New Requirement Phase 5)
+            try {
+                 const healthUrl = process.env.PYTHON_API_URL.replace('/prioritize', '/health');
+                 const healthRes = await axios.get(healthUrl, { timeout: 3000 });
+                 console.log(`[Backend] [AI] Health Check OK: ${JSON.stringify(healthRes.data)}`);
+            } catch (hErr) {
+                 console.warn(`[Backend] [AI] WARNING: AI Service Unreachable (Health Check Failed): ${hErr.message}`);
             }
 
-            // Fallback default (Matches Python DecisionLog schema)
-            aiResponse = {
-                final_priority_score: 10,
-                confidence_score: 0.0,
-                requires_human_approval: true,
-                decision_source: "FALLBACK_ERROR",
-                reasoning: "AI Service Unavailable - Using Safe Default",
-                ai_models_used: [],
-                sender_trust_score: user.trust_score || 1.0,
-                ethical_category: "standard" 
-            };
+            try {
+                console.log(`[Backend] Calling Python AI (Critical Item Detected)`, payload);
+                const response = await axios.post(process.env.PYTHON_API_URL, payload, { timeout: 10000 });
+                aiResponse = response.data;
+                console.log(`[Backend] AI Response: Priority ${aiResponse.final_priority_score}`);
+            } catch (err) {
+                console.error("[Backend] AI Service Failed:", err.message);
+                // Fallback is already set to Standard above, but we can set specific error fallback
+                 aiResponse = {
+                    final_priority_score: 5, // Fallback safe medium
+                    confidence_score: 0.0,
+                    requires_human_approval: true, // Safety check
+                    decision_source: "FALLBACK_ERROR",
+                    reasoning: "AI Service Unavailable for Critical Item - Using Validated Default",
+                    ai_models_used: [],
+                    sender_trust_score: user.trust_score || 1.0,
+                    ethical_category: "standard" 
+                };
+            }
+        } else {
+             console.log(`[Backend] Skipping AI: Product '${product.name}' is eligible for Standard Delivery only.`);
         }
 
         // Priority -> Status Enforcement (Phase 4 Logic)
@@ -102,12 +120,43 @@ router.post('/', verifyToken, async (req, res) => {
              aiResponse.requires_human_approval = false;
         }
 
-        // 5. Create Order in DB
+        // 5. Calculate Priority Fee (Phase 5 Logic)
+        let priorityFee = 0;
+        // Strict Condition: Fee only applies if High Priority AND Human Approval is Required
+        if (aiResponse.requires_human_approval) {
+            if (aiResponse.final_priority_score <= 1) {
+                priorityFee = 50;
+            } else if (aiResponse.final_priority_score <= 2) {
+                priorityFee = 25;
+            }
+        }
+        
+        // Ensure Fee is 0 if skipped AI or downgraded (already handled by score, but safety check)
+        // Note: aiResponse.final_priority_score is the truth.
+
+        const basePrice = product.price * quantity;
+        const totalAmount = basePrice + priorityFee;
+
+        if (priorityFee > 0) {
+            aiResponse.reasoning += `\n• [Priority Fee] Applied: $${priorityFee} (High Urgent Priority detected).`;
+        }
+
+        // 6. Create Order in DB
         const newOrder = new Order({
             user: senderId,
+            seller: product.seller, // Link to Product Owner/Seller
             product_name: product.name, // Keep for display
             description: combinedDescription, // Store full context
             quantity,
+            
+            // Phase 5: Location
+            delivery_location: {
+                type: 'Point',
+                coordinates: (latitude && longitude) ? [longitude, latitude] : 
+                             (customer_location && customer_location.longitude) ? [customer_location.longitude, customer_location.latitude] : [0, 0]
+            },
+            // Phase 5 Enhanced: Store detailed location
+            customer_location: customer_location || {},
             
             ai_priority: aiResponse.final_priority_score,
             confidence_score: aiResponse.confidence_score,
@@ -120,7 +169,12 @@ router.post('/', verifyToken, async (req, res) => {
             trust_score_snapshot: aiResponse.sender_trust_score,
             ai_models_used: aiResponse.ai_models_used,
             
-            status: status
+            status: status,
+            
+            // Fee Logic & Pricing Persistence
+            base_price: product.price, // Persist unit price
+            priority_fee: priorityFee,
+            total_amount: totalAmount
         });
 
         await newOrder.save();
@@ -161,16 +215,44 @@ router.get('/', verifyToken, async (req, res) => {
                 status: { $in: ['READY_FOR_PICKUP', 'IN_TRANSIT', 'DELIVERED'] } 
             };
         } else if (req.user.role === 'customer') {
-            // Preserving existing behavior might mean "show all" ?? 
-            // Most likely Customer Dashboard filters by user ID on client side or backend should.
-            // I'll filter by user ID for customer to be safe/sane, unless it breaks something.
-            // Checking Order model: user field exists.
-            // Let's just return ALL for customer for now to ensure "Unchanged" constraint if they relied on client filtering?
-            // Actually, risk of breaking is low if I do { user: req.user.id }.
-            // Let's stick to modifying ONLY Seller and Agent logic.
+            // Phase 5 Secure: Strict visibility for Customers
+            // 1. Only return their own orders
+            query = { user: req.user.id };
         }
 
-        const orders = await Order.find(query).sort({ createdAt: -1 }).populate('user', 'name email role');
+        // Populate details for visibility
+        let orders = await Order.find(query)
+            .sort({ createdAt: -1 })
+            .populate('user', 'name email role location live_location')
+            .populate('seller', 'name email location')
+            .populate('assigned_to', 'name email role location live_location');
+
+        // Phase 5 Secure: Sanitization for Customers
+        if (req.user.role === 'customer') {
+            orders = orders.map(o => {
+                const orderObj = o.toObject();
+                // Sanitized object for Customer
+                return {
+                    _id: orderObj._id,
+                    product_name: orderObj.product_name,
+                    quantity: orderObj.quantity,
+                    base_price: orderObj.base_price || 0, // Include base_price
+                    total_amount: orderObj.total_amount || 0, // Prevent NaN
+                    priority_fee: orderObj.priority_fee || 0, // Prevent NaN
+                    fee_waived: orderObj.fee_waived || false, // Phase 5 Enhanced: Fee Waiver Visibility
+                    status: orderObj.status,
+                    createdAt: orderObj.createdAt,
+                    // Minimal user info (should match logged in user anyway)
+                    user: { _id: orderObj.user._id, name: orderObj.user.name },
+                    // Hide Seller/Agent details unless necessary (Requirement says "Customers can view ALL products... Internal priority labels NOT shown")
+                    // Keeping minimal status info is fine.
+                    // EXCLUDE: ai_priority, confidence_score, decision_source, decision_explanation, reasoning, ai_models_used
+                    // EXCLUDE: seller/assigned_to PII if not needed (keeping simple for now)
+                };
+            });
+            console.log(`[Backend] Sanitized ${orders.length} orders for Customer view.`);
+        }
+            
         res.json(orders);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -239,6 +321,24 @@ router.patch('/:id/approve', verifyToken, async (req, res) => {
         // This is required because the Seller Dashboard ONLY shows orders with this specific status (or PACKED/READY).
         // If we leave it as 'approved', the Seller will never see it.
         if (approved) {
+            const { waive_fee } = req.body;
+            
+            // Phase 5: Fee Waiver Logic
+            if (waive_fee && order.priority_fee > 0) {
+                const oldFee = order.priority_fee;
+                order.priority_fee = 0;
+                order.fee_waived = true;
+                order.total_amount = order.total_amount - oldFee;
+                order.decision_explanation += `\n\n[Human Action] Priority Fee ($${oldFee}) WAIVED by Admin.`;
+            }
+            
+            // Phase 5: Priority Routing (Only for Priority <= 2)
+            // Logic: If Admin Approves, we check if it was High Priority.
+            if (order.ai_priority <= 2) {
+                 // Trigger Auto-Routing
+                 await PriorityService.assignOrder(order);
+            }
+
             order.status = 'APPROVED_FOR_SELLER';
             
             // Emit specific event for real-time Seller updates

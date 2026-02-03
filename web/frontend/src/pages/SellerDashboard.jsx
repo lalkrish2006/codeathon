@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
-import { Package, CheckCircle, Truck, AlertCircle, ShoppingBag, Plus, Trash2, Edit } from 'lucide-react';
+import { Package, CheckCircle, Truck, AlertCircle, ShoppingBag, Plus, Trash2, Edit, MapPin } from 'lucide-react';
 import io from 'socket.io-client';
 
 const SellerDashboard = () => {
@@ -109,6 +109,37 @@ const SellerDashboard = () => {
         }
     };
 
+    const getGeoLocation = () => {
+        return new Promise((resolve, reject) => {
+            if (!navigator.geolocation) {
+                reject(new Error("Geolocation is not supported."));
+            } else {
+                navigator.geolocation.getCurrentPosition(resolve, reject);
+            }
+        });
+    };
+
+    const updateLocation = async () => {
+        try {
+            const pos = await getGeoLocation();
+            const { latitude, longitude } = pos.coords;
+            
+            const token = localStorage.getItem('token');
+            await axios.patch(`${API_URL}/users/location`, {
+                latitude,
+                longitude,
+                isAvailable: true
+            }, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            alert("Shop location updated successfully! You are now eligible for instant delivery routing.");
+        } catch (error) {
+            console.error("Location update failed:", error);
+            alert("Failed to update location. Please map sure location permission is allowed.");
+        }
+    };
+
     const approvedOrders = orders.filter(o => o.status === 'APPROVED_FOR_SELLER');
     const packedOrders = orders.filter(o => o.status === 'PACKED');
     const readyOrders = orders.filter(o => o.status === 'READY_FOR_PICKUP');
@@ -132,6 +163,13 @@ const SellerDashboard = () => {
                         className={`w-full text-left px-4 py-2 rounded flex items-center gap-2 ${activeTab === 'products' ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-600 hover:bg-gray-50'}`}>
                         <ShoppingBag size={18} /> My Products
                     </button>
+                    
+                    <button 
+                        onClick={updateLocation}
+                        className="w-full text-left px-4 py-2 text-blue-600 hover:bg-blue-50 rounded flex items-center gap-2">
+                        <MapPin size={18} /> Update Shop Location
+                    </button>
+
                     <div className="pt-4 border-t mt-4">
                         <button onClick={logout} className="w-full text-left px-4 py-2 text-red-600 hover:bg-red-50 rounded">
                             Logout

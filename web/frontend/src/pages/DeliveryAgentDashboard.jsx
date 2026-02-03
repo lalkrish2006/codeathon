@@ -9,6 +9,10 @@ const DeliveryAgentDashboard = () => {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
 
+    // Live Location State
+    const [isOnline, setIsOnline] = useState(false);
+    const LOCATION_INTERVAL_MS = 15000; // 15 seconds
+
     const API_URL = 'http://localhost:5000/api/orders';
 
     useEffect(() => {
@@ -26,6 +30,63 @@ const DeliveryAgentDashboard = () => {
 
         return () => socket.disconnect();
     }, []);
+
+    // Live Location Tracking Effect
+    useEffect(() => {
+        let intervalId;
+
+        const sendLocationUpdate = async () => {
+             if (!navigator.geolocation) return;
+             
+             navigator.geolocation.getCurrentPosition(
+                async (position) => {
+                    const { latitude, longitude } = position.coords;
+                    try {
+                        const token = localStorage.getItem('token');
+                        // Use the specific agent location endpoint
+                        await axios.patch('http://localhost:5000/api/users/agent/location', {
+                            latitude,
+                            longitude
+                        }, {
+                            headers: { Authorization: `Bearer ${token}` }
+                        });
+                        console.log(`[Location] Updated: ${latitude}, ${longitude}`);
+                    } catch (err) {
+                        console.error("[Location] Update failed", err);
+                    }
+                }, 
+                (err) => console.error("[Location] Geo Error", err),
+                { enableHighAccuracy: true }
+             );
+        };
+
+        if (isOnline) {
+            // Initial call
+            sendLocationUpdate();
+            // Start interval
+            intervalId = setInterval(sendLocationUpdate, LOCATION_INTERVAL_MS);
+        }
+
+        return () => {
+            if (intervalId) clearInterval(intervalId);
+        };
+    }, [isOnline]);
+
+    const toggleOnlineStatus = () => {
+        if (!isOnline) {
+            // Trying to go online - Request permission first
+            if (!navigator.geolocation) {
+                alert("Geolocation is not supported. Cannot go online.");
+                return;
+            }
+            navigator.geolocation.getCurrentPosition(
+                () => setIsOnline(true), // Success -> Go Online
+                () => alert("Location permission is required to go online and receive orders.") // Denied
+            );
+        } else {
+            setIsOnline(false);
+        }
+    };
 
     const fetchOrders = async () => {
         try {
@@ -75,9 +136,27 @@ const DeliveryAgentDashboard = () => {
                     </h1>
                     <p className="text-xs text-slate-400 mt-1 hidden md:block">Agent Portal</p>
                 </div>
-                <button onClick={logout} className="text-sm bg-slate-700 px-3 py-1 rounded hover:bg-slate-600">
+                <button onClick={logout} className="text-sm bg-slate-700 px-3 py-1 rounded hover:bg-slate-600 block w-full text-left mt-2">
                     Logout
                 </button>
+                
+                <div className="mt-6 pt-6 border-t border-slate-700">
+                    <p className="text-xs uppercase text-slate-400 font-bold mb-2">Status</p>
+                    <button 
+                        onClick={toggleOnlineStatus}
+                        className={`w-full py-2 px-3 rounded font-bold flex items-center justify-between ${
+                            isOnline 
+                            ? 'bg-green-500 text-white hover:bg-green-600' 
+                            : 'bg-gray-600 text-gray-300 hover:bg-gray-500' 
+                        }`}
+                    >
+                        <span>{isOnline ? 'ONLINE' : 'OFFLINE'}</span>
+                        <div className={`w-3 h-3 rounded-full ${isOnline ? 'bg-white animate-pulse' : 'bg-gray-400'}`}></div>
+                    </button>
+                    <p className="text-[10px] text-slate-400 mt-2 text-center">
+                        {isOnline ? "Sharing live location..." : "Go online to start routing"}
+                    </p>
+                </div>
             </aside>
 
             {/* Main Content */}

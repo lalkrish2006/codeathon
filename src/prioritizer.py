@@ -141,6 +141,17 @@ class DeliveryPrioritizer:
                 final_decision_log.reasoning += "\n• [Calibration] Urgency downgraded (+2) due to stability/backup keywords."
                 final_decision_log.requires_human_approval = (final_decision_log.final_priority_score <= 2)
 
+            # Rule 1.5: Non-Urgent Critical Item Check (Phase 5 Refinement)
+            # If item is critical (Priority <= 4) but description lacks explicit urgency, downgrade to Standard (5-7).
+            urgency_keywords = ["immediate", "today", "now", "emergency", "severe", "pain", "critical", "bleeding", "allergy", "asthma", "heart", "attack", "accident"]
+            has_urgency_kw = any(kw in desc_lower for kw in urgency_keywords)
+            
+            if final_decision_log.final_priority_score <= 4 and not has_urgency_kw:
+                 print("DEBUG: Applying Rule 1.5 - Critical Item but No Urgency Detected")
+                 final_decision_log.final_priority_score = 5 # Downgrade to Standard/High-Standard
+                 final_decision_log.reasoning += "\n• [Refinement] Critical Category detected, but user description lacks explicit urgency keywords. Downgrading to Standard High (P5)."
+                 final_decision_log.requires_human_approval = False
+
             # Calibration Rule 2: Force Priority 1 for Critical/ICU
             if any(kw in desc_lower for kw in ["icu", "oxygen saturation dropped", "immediate", "life-threatening"]):
                 final_decision_log.final_priority_score = 1
