@@ -2,18 +2,22 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import { io } from 'socket.io-client';
-import { Shield, AlertTriangle, Check, X, Clock, Zap } from 'lucide-react';
+import { Shield, AlertTriangle, Check, X, Clock, Zap, MapPin, Truck, ChevronDown, Activity, Users, Filter, ArrowRight } from 'lucide-react';
 import clsx from 'clsx'; 
+import MapLocationPicker from '../components/MapLocationPicker'; 
 
-const socket = io('http://localhost:5000'); // Connect to backend
+const socket = io('http://localhost:5000');
 
 const AdminDashboard = () => {
-  const { user, logout } = useAuth();
-  const [orders, setOrders] = useState([]);
+    const { user, logout } = useAuth();
+    const [orders, setOrders] = useState([]);
+    const [agents, setAgents] = useState([]);
+    const [overrideAgentId, setOverrideAgentId] = useState('');
+    const [selectedOrder, setSelectedOrder] = useState(null);
   
-  // Real-time listener
   useEffect(() => {
     fetchOrders();
+    fetchAgents();
 
     socket.on('new_order', (order) => {
       setOrders(prev => [order, ...prev]);
@@ -38,21 +42,34 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleApproval = async (id, approved, waiveFee = false) => {
+  const fetchAgents = async () => {
+      try {
+          const res = await axios.get('http://localhost:5000/api/users?role=delivery_agent');
+          setAgents(res.data);
+      } catch (err) {
+          console.error("Failed to fetch agents", err);
+      }
+  };
+
+  const handleApproval = async (id, approved, waiveFee = false, overrideId = null) => {
       try {
           await axios.patch(`http://localhost:5000/api/orders/${id}/approve`, {
               approved,
               waive_fee: waiveFee,
-              reasoning: approved ? "Manual Approval by Admin" : "Manual Rejection by Admin"
+              override_agent_id: overrideId,
+              reasoning: approved 
+                ? (overrideId ? "Manual Approval with Override" : "Manual Approval by Admin") 
+                : "Manual Rejection by Admin"
           });
+          if (selectedOrder && selectedOrder._id === id) {
+              setSelectedOrder(null);
+              setOverrideAgentId('');
+          }
       } catch (err) {
           alert('Action failed: ' + err.message);
       }
   }
 
-  const [selectedOrder, setSelectedOrder] = useState(null);
-
-  // Helper to format location
   const formatLoc = (usr) => {
       if (usr?.live_location && usr.live_location.latitude) {
           return `Live: ${usr.live_location.latitude.toFixed(4)}, ${usr.live_location.longitude.toFixed(4)}`;
@@ -63,220 +80,324 @@ const AdminDashboard = () => {
       return "Unknown";
   };
 
-  return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
-       {/* Top Bar */}
-       <header className="bg-slate-900 text-white shadow-lg z-10">
-         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-            <div className="flex items-center space-x-3">
-                <Shield className="h-8 w-8 text-emerald-400" />
-                <h1 className="text-2xl font-bold tracking-tight">RapidPost <span className="text-emerald-400">AI Control Center</span></h1>
-            </div>
-            <div className="flex items-center space-x-4">
-                <span className="bg-slate-800 px-3 py-1 rounded text-sm text-slate-300">Admin Mode</span>
-                <button onClick={logout} className="text-sm font-medium hover:text-white text-slate-400">Logout</button>
-            </div>
-         </div>
-       </header>
+    return (
+        <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex flex-col">
+            {/* Admin Top Bar */}
+            <header className="bg-white border-b border-gray-200 sticky top-0 z-20 shadow-sm h-16">
+                <div className="max-w-[1600px] mx-auto px-6 h-full flex justify-between items-center">
+                    <div className="flex items-center space-x-3">
+                        <div className="bg-slate-900 p-2 rounded text-white">
+                            <Shield className="h-5 w-5" />
+                        </div>
+                        <h1 className="text-lg font-bold text-slate-900 tracking-tight">RapidPost <span className="text-slate-500 font-medium">Control Panel</span></h1>
+                    </div>
+                    <div className="flex items-center space-x-6">
+                        <div className="flex items-center gap-2 text-xs font-medium text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100">
+                             <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                             <span>System Operational</span>
+                        </div>
+                        <div className="h-6 w-px bg-gray-200"></div>
+                        <button onClick={logout} className="text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors">Logout</button>
+                    </div>
+                </div>
+            </header>
 
-       {/* Main Content */}
-       <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-8">
-           
-           {/* Stats Row */}
-           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-               <StatCard label="Pending Review" value={orders.filter(o => o.requires_human_approval && !o.human_approved && o.status === 'HUMAN_APPROVAL_REQUIRED').length} color="bg-orange-500" icon={<AlertTriangle className="text-white" />} />
-               <StatCard label="High Priority (1-3)" value={orders.filter(o => o.ai_priority <= 3).length} color="bg-red-500" icon={<Zap className="text-white" />} />
-               <StatCard label="Avg Confidence" value={`${(orders.reduce((acc, o) => acc + (o.confidence_score||0), 0) / (orders.length||1) * 100).toFixed(0)}%`} color="bg-blue-500" icon={<Shield className="text-white" />} />
-               <StatCard label="Total Orders" value={orders.length} color="bg-slate-600" icon={<Clock className="text-white" />} />
-           </div>
+            {/* Main Content */}
+            <main className="flex-1 max-w-[1600px] w-full mx-auto px-6 py-8">
+                
+                {/* Metric Summary */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    <StatCard 
+                        label="Pending Review" 
+                        value={orders.filter(o => o.requires_human_approval && !o.human_approved && o.status === 'HUMAN_APPROVAL_REQUIRED').length} 
+                        icon={<AlertTriangle className="text-amber-600 w-5 h-5" />}
+                        bgColor="bg-amber-50"
+                        textColor="text-amber-700"
+                    />
+                    <StatCard 
+                        label="Critical Priority" 
+                        value={orders.filter(o => o.ai_priority <= 2).length} 
+                        icon={<Zap className="text-red-600 w-5 h-5" />}
+                        bgColor="bg-red-50"
+                        textColor="text-red-700"
+                    />
+                    <StatCard 
+                        label="Active Agents" 
+                        value={agents.length} 
+                        icon={<Truck className="text-blue-600 w-5 h-5" />} 
+                        bgColor="bg-blue-50"
+                        textColor="text-blue-700"
+                    />
+                    <StatCard 
+                        label="Total Orders" 
+                        value={orders.length} 
+                        icon={<Clock className="text-slate-600 w-5 h-5" />} 
+                        bgColor="bg-slate-100"
+                        textColor="text-slate-700"
+                    />
+                </div>
 
-           {/* Orders Table */}
-           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-               <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                   <h2 className="text-lg font-semibold text-gray-800">Incoming Deliveries Live Feed</h2>
-                   <div className="flex space-x-2 text-xs text-gray-500">
-                       <span className="flex items-center"><span className="w-2 h-2 rounded-full bg-green-500 mr-1"></span>Connected</span>
-                   </div>
-               </div>
-               
-               <div className="overflow-x-auto">
-                   <table className="min-w-full divide-y divide-gray-200">
-                       <thead className="bg-gray-50">
-                           <tr>
-                               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
-                               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order Details</th>
-                               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Allocation</th>
-                               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                           </tr>
-                       </thead>
-                       <tbody className="bg-white divide-y divide-gray-200">
-                           {orders.map((order) => (
-                                   <tr key={order._id} className={clsx("hover:bg-gray-50 transition-colors", order.requires_human_approval && order.status === 'HUMAN_APPROVAL_REQUIRED' ? "bg-red-50" : "")}>
-                                   <td className="px-6 py-4 whitespace-nowrap">
-                                       <div className="flex items-center">
-                                           <div className={clsx(
-                                               "flex items-center justify-center w-8 h-8 rounded-full font-bold text-white",
-                                               order.ai_priority <= 2 ? "bg-red-600 animate-pulse" :
-                                               order.ai_priority <= 5 ? "bg-orange-500" :
-                                               "bg-blue-500"
-                                           )}>
-                                               {order.ai_priority}
-                                           </div>
-                                       </div>
-                                   </td>
-                                   <td className="px-6 py-4">
-                                       <div className="text-sm font-medium text-gray-900">{order.product_name} (x{order.quantity})</div>
-                                       <div className="text-xs text-gray-500">Cust: {order.user?.name || 'Unknown'}</div>
-                                       {order.customer_location?.city && (
-                                            <div className="text-xs text-blue-600">
-                                                Loc: {order.customer_location.city}, {order.customer_location.state}
+                {/* Orders Data Grid */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-[calc(100vh-280px)]">
+                    <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50/50">
+                        <h2 className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                            <Activity size={16} /> Live Authorization Feed
+                        </h2>
+                        <div className="flex space-x-2 text-xs">
+                             <span className="px-3 py-1 bg-white border border-gray-200 rounded text-slate-600 font-medium">{orders.length} Records</span>
+                        </div>
+                    </div>
+                    
+                    <div className="overflow-auto flex-1">
+                        <table className="min-w-full divide-y divide-gray-200 text-left">
+                            <thead className="bg-gray-50 sticky top-0 z-10">
+                                <tr>
+                                    <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase w-20">Priority</th>
+                                    <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase">Context</th>
+                                    <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase">AI Analysis</th>
+                                    <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase">Status</th>
+                                    <th className="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100 bg-white">
+                                {orders.map((order) => (
+                                    <tr key={order._id} className="hover:bg-gray-50 transition-colors group">
+                                        <td className="px-6 py-4 align-top">
+                                            <div className={clsx(
+                                                "flex items-center justify-center w-8 h-8 rounded-lg font-bold text-white text-sm shadow-sm",
+                                                order.ai_priority === 1 ? "bg-red-600" :
+                                                order.ai_priority === 2 ? "bg-orange-500" :
+                                                order.ai_priority <= 4 ? "bg-amber-400" :
+                                                "bg-slate-400"
+                                            )}>
+                                                {order.ai_priority}
                                             </div>
-                                       )}
-                                   </td>
-                                   <td className="px-6 py-4">
-                                        <div className="text-xs">
-                                            <p><span className="font-semibold">Seller:</span> {order.seller?.name || "Pending"}</p>
-                                            <p><span className="font-semibold">Agent:</span> {order.assigned_to?.name || "Unassigned"}</p>
+                                        </td>
+                                        <td className="px-6 py-4 align-top">
+                                            <div className="flex flex-col">
+                                                <span className="text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{order.product_name}</span>
+                                                <span className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                                                    <Users size={12} /> {order.user?.name}
+                                                </span>
+                                                <span className="text-xs text-slate-400 font-mono mt-0.5">#{order._id.slice(-6).toUpperCase()}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 align-top max-w-sm">
+                                             <div className="flex flex-col gap-2">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-24 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                                        <div className={`h-full ${order.confidence_score > 0.8 ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{width: `${(order.confidence_score || 0) * 100}%`}}></div>
+                                                    </div>
+                                                    <span className="text-xs font-bold text-slate-600">{(order.confidence_score*100).toFixed(0)}%</span>
+                                                </div>
+                                                <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">{order.decision_explanation}</p>
+                                             </div>
+                                        </td>
+                                        <td className="px-6 py-4 align-top whitespace-nowrap">
+                                            <span className={clsx(
+                                                "px-2.5 py-1 inline-flex text-xs font-bold rounded-full border",
+                                                (order.status === 'APPROVED_FOR_SELLER' || order.status === 'HUMAN_APPROVED') ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                                                order.status === 'REJECTED' ? "bg-red-50 text-red-700 border-red-200" :
+                                                order.status === 'HUMAN_APPROVAL_REQUIRED' ? "bg-amber-50 text-amber-700 border-amber-200" :
+                                                "bg-slate-100 text-slate-600 border-slate-200"
+                                            )}>
+                                                {order.status.replace(/_/g, " ")}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 align-top text-right">
+                                            <button 
+                                                onClick={() => { setSelectedOrder(order); setOverrideAgentId(''); }}
+                                                className="text-indigo-600 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded font-bold text-xs transition-colors border border-indigo-100">
+                                                Inspect
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {/* INSPECT MODAL */}
+                {selectedOrder && (
+                    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                        <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full flex flex-col max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                            
+                            {/* Modal Header */}
+                            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                                <div>
+                                    <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                                        Order Inspection <span className="text-slate-400 font-mono text-sm">#{selectedOrder._id}</span>
+                                    </h3>
+                                </div>
+                                <button onClick={() => setSelectedOrder(null)} className="text-slate-400 hover:text-slate-600 p-1.5 hover:bg-gray-200 rounded-full transition-colors">
+                                    <X size={20} />
+                                </button>
+                            </div>
+
+                            <div className="flex-1 overflow-y-auto p-6 bg-white">
+                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                    
+                                    {/* COLUMN 1: INFORMATION */}
+                                    <div className="space-y-6 lg:col-span-2">
+                                        {/* Critical Context */}
+                                        {selectedOrder.customer_context && (
+                                            <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg">
+                                                <h4 className="text-xs font-bold text-red-700 uppercase mb-1 flex items-center gap-2">
+                                                    <AlertTriangle size={14} /> Reported Emergency
+                                                </h4>
+                                                <p className="text-slate-800 font-medium italic">"{selectedOrder.customer_context}"</p>
+                                            </div>
+                                        )}
+
+                                        {/* AI Analysis */}
+                                        <div className="card-base p-5 border border-gray-200 shadow-none">
+                                            <h4 className="font-bold text-xs text-slate-500 uppercase mb-3 flex items-center gap-2">
+                                                <Shield size={14} className="text-indigo-500" /> AI Ethics Decision
+                                            </h4>
+                                            <p className="text-sm text-slate-700 bg-gray-50 p-3 rounded border border-gray-100 mb-4 leading-relaxed">
+                                                {selectedOrder.decision_explanation}
+                                            </p>
+                                            
+                                            <div className="flex gap-8 border-t border-gray-100 pt-4">
+                                                <div>
+                                                    <span className="text-xs text-slate-500 font-medium block">Priority Level</span>
+                                                    <span className={`text-xl font-bold ${selectedOrder.ai_priority <= 2 ? 'text-red-600' : 'text-slate-800'}`}>
+                                                        {selectedOrder.ai_priority}
+                                                    </span>
+                                                </div>
+                                                <div>
+                                                    <span className="text-xs text-slate-500 font-medium block">Confidence</span>
+                                                    <span className="text-xl font-bold text-slate-800">{(selectedOrder.confidence_score * 100).toFixed(0)}%</span>
+                                                </div>
+                                            </div>
                                         </div>
-                                   </td>
-                                   <td className="px-6 py-4 whitespace-nowrap">
-                                       <span className={clsx(
-                                           "px-2 inline-flex text-xs leading-5 font-semibold rounded-full",
-                                           (order.status === 'APPROVED_FOR_SELLER' || order.status === 'HUMAN_APPROVED') ? "bg-green-100 text-green-800" :
-                                           order.status === 'REJECTED' ? "bg-red-100 text-red-800" :
-                                           order.status === 'HUMAN_APPROVAL_REQUIRED' ? "bg-yellow-100 text-yellow-800" :
-                                           "bg-gray-100 text-gray-800"
-                                       )}>
-                                           {order.status}
-                                       </span>
-                                   </td>
-                                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                       <button 
-                                            onClick={() => setSelectedOrder(order)}
-                                            className="text-blue-600 hover:text-blue-900 mr-3 text-xs border border-blue-200 px-2 py-1 rounded bg-white">
-                                            View Details
-                                       </button>
-                                       
-                                       {order.requires_human_approval && order.status === 'HUMAN_APPROVAL_REQUIRED' && (
-                                           <div className="flex flex-col space-y-1 items-end">
-                                               {order.priority_fee > 0 && (
-                                                   <span className="text-[10px] bg-yellow-100 text-yellow-800 px-1 rounded">
-                                                       Fee: ${order.priority_fee}
-                                                   </span>
-                                               )}
-                                               <div className="inline-flex space-x-2">
-                                                   <button onClick={() => handleApproval(order._id, true, false)} className="text-green-600 hover:text-green-900 p-1 border border-green-200 rounded hover:bg-green-50" title="Approve">
-                                                       <Check size={18} />
-                                                   </button>
-                                                   <button onClick={() => handleApproval(order._id, true, true)} className="text-blue-600 hover:text-blue-900 p-1 border border-blue-200 rounded hover:bg-blue-50" title="Approve & Waive Fee">
-                                                       <span className="font-bold text-xs">$0</span>
-                                                   </button>
-                                                    <button onClick={() => handleApproval(order._id, false)} className="text-red-600 hover:text-red-900 p-1 border border-red-200 rounded hover:bg-red-50" title="Reject">
-                                                       <X size={18} />
-                                                   </button>
-                                               </div>
-                                           </div>
-                                       )}
-                                   </td>
-                               </tr>
-                           ))}
-                       </tbody>
-                   </table>
-               </div>
-           </div>
 
-           {/* DETAIL MODAL */}
-           {selectedOrder && (
-               <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                   <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full p-6 animate-in fade-in zoom-in duration-200">
-                       <div className="flex justify-between items-start mb-6">
-                           <h3 className="text-xl font-bold text-gray-800">Order Details</h3>
-                           <button onClick={() => setSelectedOrder(null)} className="text-gray-400 hover:text-gray-600">
-                               <X size={24} />
-                           </button>
-                       </div>
+                                        {/* Customer Details */}
+                                        <div className="card-base p-5 border border-gray-200 shadow-none">
+                                             <h4 className="font-bold text-xs text-slate-500 uppercase mb-3">Customer Entity</h4>
+                                             <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-500">
+                                                    {selectedOrder.user?.name ? selectedOrder.user.name[0] : 'U'}
+                                                </div>
+                                                <div>
+                                                    <p className="font-bold text-slate-900">{selectedOrder.user?.name}</p>
+                                                    <p className="text-xs text-slate-500">{selectedOrder.user?.email}</p>
+                                                </div>
+                                             </div>
+                                             <div className="mt-3 flex items-center gap-2 text-xs text-slate-600 bg-gray-50 p-2 rounded">
+                                                <MapPin size={14} /> {formatLoc(selectedOrder.user)}
+                                             </div>
+                                        </div>
+                                    </div>
 
-                       <div className="grid grid-cols-2 gap-6 mb-6">
-                           <div className="bg-gray-50 p-4 rounded-lg">
-                               <h4 className="font-bold text-sm text-gray-500 uppercase mb-2">Customer Context</h4>
-                               <p className="font-medium text-lg text-gray-900">{selectedOrder.user?.name}</p>
-                               <p className="text-sm text-gray-600 mb-2">{selectedOrder.user?.email}</p>
-                               <div className="text-sm bg-white p-2 rounded border border-gray-200 h-24 overflow-y-auto">
-                                   <span className="font-semibold text-xs text-gray-400 block">DESCRIPTION:</span>
-                                   {selectedOrder.description}
-                               </div>
-                               <div className="mt-2 text-xs text-blue-800 bg-blue-50 p-2 rounded">
-                                   <p>Location: {formatLoc(selectedOrder.user)}</p>
-                                   <p>City: {selectedOrder.customer_location?.city || 'N/A'}</p>
-                               </div>
-                           </div>
+                                    {/* COLUMN 2: ACTIONS */}
+                                    <div className="space-y-4">
+                                        <div className="card-base p-5 bg-gray-50 border border-gray-200 shadow-none">
+                                            <h4 className="font-bold text-xs text-slate-500 uppercase mb-3">Logistics Status</h4>
+                                            
+                                            <div className="flex justify-between items-center mb-4 pb-4 border-b border-gray-200">
+                                                <span className="text-sm text-slate-600">Assigned Agent</span>
+                                                <span className={`text-sm font-bold ${selectedOrder.assigned_to ? 'text-indigo-700' : 'text-slate-400 italic'}`}>
+                                                    {selectedOrder.assigned_to 
+                                                        ? selectedOrder.assigned_to.name 
+                                                        : (selectedOrder.ai_priority >= 5 
+                                                            ? "Assignment not required at this stage" 
+                                                            : "Waiting for Assignment")
+                                                    }
+                                                </span>
+                                            </div>
 
-                           <div className="bg-gray-50 p-4 rounded-lg">
-                               <h4 className="font-bold text-sm text-gray-500 uppercase mb-2">Supply Chain</h4>
-                               
-                               <div className="mb-4">
-                                   <p className="font-semibold text-xs text-gray-400">SELLER</p>
-                                   <p className="text-sm font-bold">{selectedOrder.seller?.name || "Pending Allocation"}</p>
-                                   <p className="text-xs text-gray-500">{formatLoc(selectedOrder.seller)}</p>
-                               </div>
-                               
-                               <div>
-                                   <p className="font-semibold text-xs text-gray-400">DELIVERY AGENT</p>
-                                   {selectedOrder.assigned_to ? (
-                                       <>
-                                         <p className="text-sm font-bold text-emerald-700">{selectedOrder.assigned_to.name}</p>
-                                         <p className="text-xs text-gray-500">{formatLoc(selectedOrder.assigned_to)}</p>
-                                         <p className="text-[10px] uppercase bg-green-200 text-green-800 px-1 rounded inline-block mt-1">
-                                            {selectedOrder.delivery_type?.replace(/_/g, ' ') || 'Assigned'}
-                                         </p>
-                                       </>
-                                   ) : (
-                                       <p className="text-sm text-gray-400 italic">Waiting for assignment...</p>
-                                   )}
-                               </div>
-                           </div>
-                       </div>
+                                            {(selectedOrder.system_recommended_agent || selectedOrder.ai_priority <= 4) && (
+                                                <>
+                                                    <h4 className="font-bold text-xs text-slate-500 uppercase mb-3">System Recommendation</h4>
+                                                    {selectedOrder.system_recommended_agent ? (
+                                                        <div className="flex items-center justify-between bg-white p-3 rounded border border-gray-200 mb-3">
+                                                            <span className="text-sm font-bold text-slate-900">{agents.find(a => a._id === selectedOrder.system_recommended_agent)?.name || 'Unknown Agent'}</span>
+                                                            <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded font-bold">BEST FIT</span>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="text-sm text-slate-500 italic mb-3">Analysis Pending...</div>
+                                                    )}
+                                                </>
+                                            )}
+                                        
+                                            {selectedOrder.requires_human_approval && !selectedOrder.human_approved && selectedOrder.status === 'HUMAN_APPROVAL_REQUIRED' ? (
+                                                <div className="space-y-3 mt-4">
+                                                    <label className="text-xs font-bold text-slate-700 block">Override Assignment (Optional)</label>
+                                                    <select 
+                                                        className="input-field"
+                                                        value={overrideAgentId} 
+                                                        onChange={(e) => setOverrideAgentId(e.target.value)}
+                                                    >
+                                                        <option value="">-- Auto Assign --</option>
+                                                        {agents.map(agent => (
+                                                            <option key={agent._id} value={agent._id}>
+                                                                {agent.name}
+                                                            </option>
+                                                        ))}
+                                                    </select>
 
-                       <div className="border-t pt-4">
-                           <h4 className="font-bold text-sm text-gray-500 uppercase mb-2">Decision Logic</h4>
-                           <p className="text-sm text-gray-700 bg-yellow-50 p-3 rounded border border-yellow-100">
-                               {selectedOrder.decision_explanation}
-                           </p>
-                           <div className="flex gap-4 mt-2 text-xs text-gray-500">
-                                <span>Priority: {selectedOrder.ai_priority}</span>
-                                <span>Confidence: {(selectedOrder.confidence_score*100).toFixed(0)}%</span>
-                                <span>Source: {selectedOrder.decision_source}</span>
-                           </div>
-                           {selectedOrder.priority_fee > 0 && (
-                               <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800 flex justify-between">
-                                   <span>Priority Fee Applied:</span>
-                                   <span className="font-bold">${selectedOrder.priority_fee}</span>
-                               </div>
-                           )}
-                           {selectedOrder.total_amount > 0 && selectedOrder.priority_fee > 0 && (
-                               <div className="mt-1 flex justify-end text-xs text-gray-500">
-                                   Total: ${selectedOrder.total_amount}
-                               </div>
-                           )}
-                       </div>
-                   </div>
-               </div>
-           )}
+                                                    <button 
+                                                        onClick={() => handleApproval(selectedOrder._id, true, false, overrideAgentId)}
+                                                        className="w-full btn-primary flex justify-center items-center gap-2"
+                                                    >
+                                                        <Check size={16} /> {overrideAgentId ? 'Override & Approve' : 'Approve Order'}
+                                                    </button>
+                                                    
+                                                    <button 
+                                                        onClick={() => handleApproval(selectedOrder._id, true, true, overrideAgentId)}
+                                                        className="w-full bg-blue-50 text-blue-700 font-bold py-2 rounded text-xs hover:bg-blue-100 transition-colors border border-blue-100"
+                                                    >
+                                                        Approve & Waive Priority Fee
+                                                    </button>
+                                                    
+                                                    <button 
+                                                        onClick={() => handleApproval(selectedOrder._id, false)}
+                                                        className="w-full bg-white text-red-600 font-bold py-2 rounded text-xs hover:bg-red-50 transition-colors border border-red-200"
+                                                    >
+                                                        Reject Order
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div className="text-center p-4 text-xs text-slate-400 font-medium italic bg-white rounded border border-gray-100">
+                                                    No actions required
+                                                </div>
+                                            )}
+                                        </div>
 
-       </main>
-    </div>
-  );
+                                        <div className="card-base p-5 border border-gray-200 shadow-none">
+                                            <h4 className="font-bold text-xs text-slate-500 uppercase mb-3">Order Total</h4>
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-slate-600 text-sm">Amount</span>
+                                                <span className="font-bold text-xl text-slate-900">${selectedOrder.total_amount}</span>
+                                            </div>
+                                            {selectedOrder.priority_fee > 0 && (
+                                                <div className="mt-2 text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded flex justify-between">
+                                                    <span>Priority Fee</span>
+                                                    <span className="font-bold">${selectedOrder.priority_fee}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </main>
+        </div>
+    );
 };
 
-const StatCard = ({ label, value, color, icon }) => (
-    <div className="bg-white rounded-lg shadow-sm p-5 border border-gray-100 flex items-center mb-0">
-        <div className={`${color} p-3 rounded-full mr-4 shadow-md`}>
-            {icon}
-        </div>
+const StatCard = ({ label, value, icon, bgColor, textColor }) => (
+    <div className={`p-5 rounded-xl border border-gray-100 flex items-center justify-between ${bgColor}`}>
         <div>
-            <p className="text-slate-500 text-sm font-medium uppercase tracking-wider">{label}</p>
-            <p className="text-2xl font-bold text-slate-800">{value}</p>
+            <p className={`text-xs font-bold uppercase tracking-wider mb-1 ${textColor} opacity-80`}>{label}</p>
+            <p className={`text-2xl font-bold ${textColor}`}>{value}</p>
+        </div>
+        <div className="p-3 bg-white rounded-lg shadow-sm">
+            {icon}
         </div>
     </div>
 );

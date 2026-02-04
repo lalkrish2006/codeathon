@@ -8,6 +8,8 @@ import AdminDashboard from './pages/AdminDashboard';
 import SellerDashboard from './pages/SellerDashboard';
 import DeliveryAgentDashboard from './pages/DeliveryAgentDashboard';
 
+import MyOrders from './pages/MyOrders';
+
 // Protected Route Component
 const ProtectedRoute = ({ children, roles }) => {
   const { user, loading } = useAuth();
@@ -32,7 +34,19 @@ function App() {
           {/* Customer Routes */}
           <Route path="/customer" element={
             <ProtectedRoute roles={['customer']}>
+              <Navigate to="/customer/products" replace />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/customer/products" element={
+            <ProtectedRoute roles={['customer']}>
               <CustomerDashboard />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/customer/orders" element={
+            <ProtectedRoute roles={['customer']}>
+              <MyOrders />
             </ProtectedRoute>
           } />
           

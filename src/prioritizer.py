@@ -17,6 +17,44 @@ class DeliveryPrioritizer:
         # P4: Get Trust Score
         trust_score = self.trust_service.get_trust_score(package.sender)
         
+        # -------------------------------------------------------------------------
+        # GUARD CLAUSE: Strict Pre-Check (User Constraint)
+        # Prevents "Medical Product = High Priority" bias.
+        # 1. Empty/Short Description -> Normal
+        # 2. explicit "Non-Urgent" phrases -> Normal
+        # 3. LACK of "Emergency" indicators -> Normal
+        # -------------------------------------------------------------------------
+        desc_lower = (package.description or "").lower().strip()
+        
+        non_urgent_phrases = ["not urgent", "no emergency", "future use", "can wait", "no immediate need"]
+        emergency_indicators = ["emergency", "critical", "immediate", "oxygen level dropping", "struggling to breathe", "severe", "life threatening", "icu"]
+        
+        # Check 1: Empty or Blacklisted
+        is_empty_or_short = len(desc_lower) < 5
+        is_explicitly_non_urgent = any(phrase in desc_lower for phrase in non_urgent_phrases)
+        
+        # Check 2: Whitelist (Must have emergency intent to escalate to AI)
+        has_emergency_intent = any(indicator in desc_lower for indicator in emergency_indicators)
+        
+        if is_empty_or_short or is_explicitly_non_urgent or not has_emergency_intent:
+            print(f"[Prioritizer] Guard: No emergency intent detected. Skipping AI. Desc: '{desc_lower[:50]}...'")
+            
+            # Construct Normal Priority Decision
+            # Uses project default NORMAL = 7
+            return DecisionLog(
+                package_id=package.id,
+                final_priority_score=7, 
+                decision_source="PRE_CHECK_GUARD",
+                ethical_category=EthicalCategory.STANDARD,
+                reasoning="Pre-Check: No explicit emergency intent detected (Empty description, non-urgent phrases, or lack of critical keywords). Defaulting to Normal Priority.",
+                ml_prediction=None, # Skipped
+                llm_analysis=None,  # Skipped
+                confidence_score=0.2, # Low confidence (0-20%) as requested
+                requires_human_approval=False,
+                sender_trust_score=trust_score,
+                ai_models_used=[]
+            )
+        
         # 1. Run ML & LLM Analysis (Signals)
         ml_prediction = self.ml_model.predict(package)
         llm_analysis = self.llm.analyze_context(package)

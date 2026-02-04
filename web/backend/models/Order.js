@@ -47,6 +47,11 @@ const OrderSchema = new mongoose.Schema({
   // Phase 5 Enhanced: Priority Fee
   priority_fee: { type: Number, default: 0 },
   fee_waived: { type: Boolean, default: false }, // Persist waiver state
+
+  // Phase 5 Enhanced: Allocation Transparency & Override
+  assignment_reason: { type: String },
+  system_recommended_agent: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  override_reason: { type: String },
   base_price: { type: Number }, // Unit price of the product at time of order
   total_amount: { type: Number }, // Includes product price * quantity + priority_fee
 

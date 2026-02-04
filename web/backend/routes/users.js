@@ -6,6 +6,22 @@ const passport = require('passport');
 // Middleware
 const verifyToken = passport.authenticate('jwt', { session: false });
 
+// LIST USERS (Admin/System usage)
+router.get('/', verifyToken, async (req, res) => {
+    try {
+        const { role } = req.query;
+        let query = {};
+        if (role) {
+            query.role = role;
+        }
+
+        const users = await User.find(query).select('-password'); // Exclude password
+        res.json(users);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
 // UPDATE LOCATION (For Delivery Agents / Sellers)
 router.patch('/location', verifyToken, async (req, res) => {
     try {
@@ -28,6 +44,9 @@ router.patch('/location', verifyToken, async (req, res) => {
         // Optional: Update availability status
         if (typeof isAvailable !== 'undefined') {
             user.isAvailable = isAvailable;
+        } else {
+            // Implicitly set available if updating location
+            user.isAvailable = true;
         }
 
         await user.save();
@@ -67,6 +86,9 @@ router.patch('/agent/location', verifyToken, async (req, res) => {
             type: 'Point',
             coordinates: [longitude, latitude]
         };
+
+        // Enforce availability for live agents
+        user.isAvailable = true;
 
         await user.save();
         res.json({ message: "Live location updated", live_location: user.live_location });

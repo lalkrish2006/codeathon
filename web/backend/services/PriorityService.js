@@ -36,18 +36,17 @@ const findNearestUser = async (role, longitude, latitude) => {
 };
 
 const PriorityService = {
-    assignOrder: async (order) => {
-        // Only process high-priority orders (<=2) that have received Human Approval
-        // Logic: Standard orders > 2 follow standard flow (manual assignment)
-        
+    /**
+     * Calculates the best routing option without applying it.
+     * Returns the recommended user and reasoning.
+     */
+    calculateRouting: async (order) => {
         if (!order.delivery_location || !order.delivery_location.coordinates) {
-             console.log(`[PriorityService] Order ${order._id} missing location data. Skipping auto-routing.`);
-             return order;
+             return { assignedUser: null, reason: "Missing location data" };
         }
 
         const [lng, lat] = order.delivery_location.coordinates;
-        console.log(`[PriorityService] Processing High-Priority Order ${order._id} at [${lng}, ${lat}]`);
-
+        
         // 1. Find Nearest Seller
         const nearestSeller = await findNearestUser('seller', lng, lat);
         
@@ -57,29 +56,41 @@ const PriorityService = {
         // 3. Compare Distances & Assign
         let assignedUser = null;
         let deliveryType = 'STANDARD_SCHEDULED';
+        let reason = "";
 
         const distToSeller = nearestSeller ? calculateDistance([lng, lat], nearestSeller.location.coordinates) : Infinity;
         const distToAgent = nearestAgent ? calculateDistance([lng, lat], nearestAgent.location.coordinates) : Infinity;
 
-        console.log(`[PriorityService] Distances - Seller: ${distToSeller}km, Agent: ${distToAgent}km`);
-
         if (distToSeller < distToAgent) {
             assignedUser = nearestSeller;
             deliveryType = 'INSTANT_LOCAL_FULFILLMENT'; // Seller delivers directly
-            console.log(`[PriorityService] Assigned to SELLER: ${nearestSeller.name} (Closer)`);
+            reason = `Seller is closer (${distToSeller.toFixed(2)}km) than nearest agent (${distToAgent === Infinity ? 'None' : distToAgent.toFixed(2) + 'km'}).`;
         } else if (nearestAgent) {
             assignedUser = nearestAgent;
             deliveryType = 'INSTANT_LOCAL_FULFILLMENT';
-             console.log(`[PriorityService] Assigned to AGENT: ${nearestAgent.name}`);
+            reason = `Agent is closest available option (${distToAgent.toFixed(2)}km). Seller distance: ${distToSeller === Infinity ? 'N/A' : distToSeller.toFixed(2) + 'km'}.`;
         } else {
-             console.log(`[PriorityService] No available routing candidates found.`);
+            reason = "No available routing candidates found (Seller/Agent unavailable or out of range).";
         }
+
+        return { assignedUser, deliveryType, reason, distToSeller, distToAgent };
+    },
+
+    assignOrder: async (order) => {
+        // Only process high-priority orders (<=2) that have received Human Approval
+        // Logic: Standard orders > 2 follow standard flow (manual assignment)
+        
+        console.log(`[PriorityService] Processing Routing for Order ${order._id}`);
+
+        const { assignedUser, deliveryType, reason } = await PriorityService.calculateRouting(order);
 
         if (assignedUser) {
             order.assigned_to = assignedUser._id;
             order.delivery_type = deliveryType;
-            // Does NOT change status here, keeps 'APPROVED_FOR_SELLER' but adds metadata
-            // Actually request says: "Mark delivery_type... Assign order"
+            order.assignment_reason = reason; // Persist the logic
+            console.log(`[PriorityService] Success: ${reason}`);
+        } else {
+             console.log(`[PriorityService] Failed: ${reason}`);
         }
 
         return order;

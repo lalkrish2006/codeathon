@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
-import { Package, CheckCircle, Truck, AlertCircle, ShoppingBag, Plus, Trash2, Edit, MapPin } from 'lucide-react';
+import { Package, CheckCircle, Truck, AlertCircle, ShoppingBag, Plus, Trash2, Edit, MapPin, LayoutDashboard, LogOut, X } from 'lucide-react';
 import io from 'socket.io-client';
+
+import FixedLocationPicker from '../components/FixedLocationPicker';
 
 const SellerDashboard = () => {
     const { user, logout } = useAuth();
@@ -109,34 +111,30 @@ const SellerDashboard = () => {
         }
     };
 
-    const getGeoLocation = () => {
-        return new Promise((resolve, reject) => {
-            if (!navigator.geolocation) {
-                reject(new Error("Geolocation is not supported."));
-            } else {
-                navigator.geolocation.getCurrentPosition(resolve, reject);
-            }
-        });
-    };
+
+
+// ... inside component
+    const [locationModalOpen, setLocationModalOpen] = useState(false);
+    const [mapLocation, setMapLocation] = useState(null);
 
     const updateLocation = async () => {
+        if (!mapLocation) return;
+
         try {
-            const pos = await getGeoLocation();
-            const { latitude, longitude } = pos.coords;
-            
             const token = localStorage.getItem('token');
             await axios.patch(`${API_URL}/users/location`, {
-                latitude,
-                longitude,
-                isAvailable: true
+                latitude: mapLocation.latitude,
+                longitude: mapLocation.longitude,
+                isAvailable: true 
             }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
-            alert("Shop location updated successfully! You are now eligible for instant delivery routing.");
+            alert("Shop location saved successfully!");
+            setLocationModalOpen(false);
         } catch (error) {
             console.error("Location update failed:", error);
-            alert("Failed to update location. Please map sure location permission is allowed.");
+            alert("Failed to update location.");
         }
     };
 
@@ -145,152 +143,144 @@ const SellerDashboard = () => {
     const readyOrders = orders.filter(o => o.status === 'READY_FOR_PICKUP');
 
     return (
-        <div className="min-h-screen bg-gray-50 flex">
+        <div className="min-h-screen flex font-sans bg-gray-50 text-slate-900">
             {/* Sidebar */}
-            <aside className="w-64 bg-white shadow-md flex-shrink-0 hidden md:block">
-                <div className="p-6 border-b">
-                    <h1 className="text-xl font-bold text-gray-800">Seller Hub</h1>
-                    <p className="text-sm text-gray-500">Ethics-First Delivery</p>
+            <aside className="w-64 bg-white border-r border-gray-200 flex-shrink-0 hidden md:flex flex-col fixed h-full z-10">
+                <div className="p-6 border-b border-gray-100 flex items-center gap-2">
+                    <ShoppingBag className="text-indigo-600" />
+                    <h1 className="text-lg font-bold text-slate-900 tracking-tight">Seller Central</h1>
                 </div>
-                <nav className="p-4 space-y-2">
+                <nav className="p-4 space-y-1 flex-1">
                     <button 
                         onClick={() => setActiveTab('orders')}
-                        className={`w-full text-left px-4 py-2 rounded flex items-center gap-2 ${activeTab === 'orders' ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-600 hover:bg-gray-50'}`}>
-                        <Package size={18} /> Orders
+                        className={`w-full text-left px-4 py-3 rounded-lg flex items-center gap-3 transition-colors ${activeTab === 'orders' ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-slate-600 hover:bg-gray-50'}`}>
+                        <LayoutDashboard size={18} /> Orders
                     </button>
                     <button 
                         onClick={() => setActiveTab('products')}
-                        className={`w-full text-left px-4 py-2 rounded flex items-center gap-2 ${activeTab === 'products' ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-600 hover:bg-gray-50'}`}>
-                        <ShoppingBag size={18} /> My Products
+                        className={`w-full text-left px-4 py-3 rounded-lg flex items-center gap-3 transition-colors ${activeTab === 'products' ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-slate-600 hover:bg-gray-50'}`}>
+                        <Package size={18} /> Inventory
                     </button>
-                    
-                    <button 
-                        onClick={updateLocation}
-                        className="w-full text-left px-4 py-2 text-blue-600 hover:bg-blue-50 rounded flex items-center gap-2">
-                        <MapPin size={18} /> Update Shop Location
-                    </button>
-
-                    <div className="pt-4 border-t mt-4">
-                        <button onClick={logout} className="w-full text-left px-4 py-2 text-red-600 hover:bg-red-50 rounded">
-                            Logout
-                        </button>
-                    </div>
                 </nav>
+                <div className="p-4 border-t border-gray-100">
+                     <button onClick={logout} className="w-full text-left px-4 py-3 text-red-600 hover:bg-red-50 rounded-lg font-medium transition-colors mb-2 flex items-center gap-2">
+                        <LogOut size={18} /> Logout
+                    </button>
+                </div>
             </aside>
 
             {/* Main Content */}
-            <main className="flex-1 p-8 overflow-y-auto">
+            <main className="flex-1 md:ml-64 p-8">
                 <header className="flex justify-between items-center mb-8">
                     <div>
-                        <h2 className="text-2xl font-bold text-gray-800">
-                            {activeTab === 'orders' ? 'Manage Orders' : 'Product Inventory'}
-                        </h2>
-                        <p className="text-gray-600">Welcome back, {user?.name}</p>
+                         <h2 className="text-2xl font-bold text-slate-900">Dashboard</h2>
+                         <p className="text-slate-500 text-sm mt-1">Manage your orders and inventory</p>
                     </div>
-                    {activeTab === 'products' && (
-                        <button 
-                            onClick={() => setShowAddProduct(true)}
-                            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 shadow-sm font-medium">
-                            <Plus size={18} /> Add Product
-                        </button>
-                    )}
+                   
+                    <div className="flex items-center gap-4">
+                        {/* Location Indicator */}
+                        <div className="bg-white px-4 py-2 rounded-lg border border-gray-200 shadow-sm flex items-center gap-3">
+                             <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse"></div>
+                             <div>
+                                 <p className="text-xs font-bold text-slate-700 uppercase">Shop Location</p>
+                                 <button onClick={() => setLocationModalOpen(true)} className="text-xs text-indigo-600 font-semibold hover:underline">Update on Map</button>
+                             </div>
+                        </div>
+
+                        {activeTab === 'products' && (
+                            <button 
+                                onClick={() => setShowAddProduct(true)}
+                                className="btn-primary flex items-center gap-2"
+                            >
+                                <Plus size={18} /> Add Product
+                            </button>
+                        )}
+                    </div>
                 </header>
 
                 {activeTab === 'orders' ? (
-                    loading ? <p>Loading orders...</p> : (
-                        <div className="space-y-8">
+                    loading ? (
+                        <div className="flex items-center justify-center h-64 text-slate-500">
+                             <span className="w-6 h-6 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mr-3"></span> Loading orders...
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
                             {/* APPROVED ORDERS SECTION */}
-                            <section>
-                                <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                    <AlertCircle className="text-blue-600" /> 
-                                    Awaiting Packing ({approvedOrders.length})
-                                </h3>
-                                {approvedOrders.length === 0 ? (
-                                    <p className="text-gray-400 italic">No approved orders yet.</p>
-                                ) : (
-                                    <div className="grid gap-4">
-                                        {approvedOrders.map(order => (
-                                            <OrderCard 
-                                                key={order._id} 
-                                                order={order} 
-                                                actionLabel="Mark as Packed"
-                                                onAction={() => updateStatus(order._id, 'PACKED')}
-                                                variant="blue"
-                                            />
-                                        ))}
-                                    </div>
-                                )}
+                            <section className="flex flex-col gap-4">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="font-bold text-slate-800">Pending Action <span className="text-slate-400 font-normal">({approvedOrders.length})</span></h3>
+                                </div>
+                                {approvedOrders.map(order => (
+                                    <OrderCard 
+                                        key={order._id} 
+                                        order={order} 
+                                        actionLabel="Pack Order"
+                                        onAction={() => updateStatus(order._id, 'PACKED')}
+                                        variant="blue"
+                                    />
+                                ))}
+                                {approvedOrders.length === 0 && <EmptyState message="No pending orders" />}
                             </section>
 
                             {/* PACKED ORDERS SECTION */}
-                            <section>
-                                <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                    <Package className="text-yellow-600" />
-                                    Ready for Labeling ({packedOrders.length})
-                                </h3>
-                                {packedOrders.length === 0 ? (
-                                    <p className="text-gray-400 italic">No packed orders.</p>
-                                ) : (
-                                    <div className="grid gap-4">
-                                        {packedOrders.map(order => (
-                                            <OrderCard 
-                                                key={order._id} 
-                                                order={order} 
-                                                actionLabel="Mark Ready for Pickup"
-                                                onAction={() => updateStatus(order._id, 'READY_FOR_PICKUP')}
-                                                variant="yellow"
-                                            />
-                                        ))}
-                                    </div>
-                                )}
+                            <section className="flex flex-col gap-4">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="font-bold text-slate-800">Packed & Ready <span className="text-slate-400 font-normal">({packedOrders.length})</span></h3>
+                                </div>
+                                {packedOrders.map(order => (
+                                    <OrderCard 
+                                        key={order._id} 
+                                        order={order} 
+                                        actionLabel="Mark Ready for Pickup"
+                                        onAction={() => updateStatus(order._id, 'READY_FOR_PICKUP')}
+                                        variant="yellow"
+                                    />
+                                ))}
+                                {packedOrders.length === 0 && <EmptyState message="No packed orders" />}
                             </section>
 
                              {/* READY ORDERS SECTION */}
-                             <section>
-                                <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                    <CheckCircle className="text-green-600" />
-                                    Ready for Pickup ({readyOrders.length})
-                                </h3>
-                                {readyOrders.length === 0 ? (
-                                    <p className="text-gray-400 italic">No orders waiting for pickup.</p>
-                                ) : (
-                                    <div className="grid gap-4">
-                                        {readyOrders.map(order => (
-                                            <OrderCard 
-                                                key={order._id} 
-                                                order={order} 
-                                                completed={true}
-                                                variant="green"
-                                            />
-                                        ))}
-                                    </div>
-                                )}
+                             <section className="flex flex-col gap-4">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="font-bold text-slate-800">Awaiting Pickup <span className="text-slate-400 font-normal">({readyOrders.length})</span></h3>
+                                </div>
+                                {readyOrders.map(order => (
+                                    <OrderCard 
+                                        key={order._id} 
+                                        order={order} 
+                                        completed={true}
+                                        variant="green"
+                                    />
+                                ))}
+                                {readyOrders.length === 0 && <EmptyState message="No orders awaiting pickup" />}
                             </section>
                         </div>
                     )
                 ) : (
                     /* PRODUCT MANAGEMENT TAB */
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                         {products.length === 0 && (
-                            <div className="col-span-full text-center py-12 text-gray-400">
-                                <Package size={48} className="mx-auto mb-4 opacity-50" />
-                                <p>You haven't added any products yet.</p>
+                            <div className="col-span-full card-base p-12 text-center border-dashed border-gray-300">
+                                <Package className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                                <h3 className="text-lg font-medium text-slate-900">No products yet</h3>
+                                <p className="text-slate-500 mb-6">Add your first product to start selling.</p>
+                                <button onClick={() => setShowAddProduct(true)} className="btn-primary">Add Product</button>
                             </div>
                         )}
                         {products.map(product => (
-                            <div key={product._id} className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
-                                <div className="flex justify-between items-start mb-2">
-                                    <h3 className="font-bold text-lg text-gray-800">{product.name}</h3>
+                            <div key={product._id} className="card-base p-5 flex flex-col group">
+                                <div className="flex justify-between items-start mb-3">
+                                    <h3 className="font-bold text-slate-900 text-lg line-clamp-1">{product.name}</h3>
                                     <button 
                                         onClick={() => handleDeleteProduct(product._id)}
-                                        className="text-gray-400 hover:text-red-500 p-1">
-                                        <Trash2 size={18} />
+                                        className="text-gray-400 hover:text-red-600 transition-colors p-1 -mr-2">
+                                        <Trash2 size={16} />
                                     </button>
                                 </div>
-                                <p className="text-sm text-gray-500 line-clamp-3 mb-4 h-16">{product.base_description}</p>
-                                <div className="flex justify-between items-center bg-gray-50 p-3 rounded-lg">
-                                    <span className="font-bold text-green-700">${product.price}</span>
-                                    <span className="text-xs text-gray-500">Stock: {product.stock_quantity}</span>
+                                <p className="text-sm text-slate-500 line-clamp-3 mb-6 h-12 leading-relaxed">{product.base_description}</p>
+                                <div className="mt-auto flex justify-between items-center pt-4 border-t border-gray-100">
+                                    <span className="font-bold text-slate-900 text-lg">${product.price}</span>
+                                    <span className="text-xs font-semibold bg-gray-100 text-slate-600 px-2.5 py-1 rounded">Qty: {product.stock_quantity}</span>
                                 </div>
                             </div>
                         ))}
@@ -300,70 +290,75 @@ const SellerDashboard = () => {
 
             {/* ADD PRODUCT MODAL */}
             {showAddProduct && (
-                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                 <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 animate-in fade-in zoom-in duration-200">
-                     <h3 className="text-xl font-bold mb-4">Add New Product</h3>
+                 <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                 <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 animate-in fade-in zoom-in duration-200">
+                     <div className="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
+                        <h3 className="text-xl font-bold text-slate-900">Add New Product</h3>
+                        <button onClick={() => setShowAddProduct(false)} className="text-gray-400 hover:text-gray-600">
+                            <X size={20} />
+                        </button>
+                     </div>
                      
-                     <form onSubmit={handleAddProduct} className="space-y-4">
+                     <form onSubmit={handleAddProduct} className="space-y-5">
                          <div>
-                             <label className="block text-sm font-medium text-gray-700 mb-1">Product Name</label>
+                             <label className="block text-sm font-bold text-slate-700 mb-1.5">Product Name</label>
                              <input 
                                  type="text" 
                                  required
-                                 className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+                                 className="input-field"
+                                 placeholder="e.g. Wireless Headphones"
                                  value={newProduct.name}
                                  onChange={e => setNewProduct({...newProduct, name: e.target.value})}
                              />
                          </div>
                          <div>
-                             <label className="block text-sm font-medium text-gray-700 mb-1">Base Description (AI Ground Truth)</label>
+                             <label className="block text-sm font-bold text-slate-700 mb-1.5">Description</label>
                              <textarea 
                                  required
-                                 rows="4"
-                                 className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                                 placeholder="Accurate technical description of the product..."
+                                 rows="3"
+                                 className="input-field resize-none"
+                                 placeholder="Enter product description..."
                                  value={newProduct.base_description}
                                  onChange={e => setNewProduct({...newProduct, base_description: e.target.value})}
                              />
-                             <p className="text-xs text-gray-400 mt-1">This description will be combined with customer context for AI analysis.</p>
                          </div>
-                         <div className="grid grid-cols-2 gap-4">
+                         <div className="grid grid-cols-2 gap-5">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Price ($)</label>
+                                <label className="block text-sm font-bold text-slate-700 mb-1.5">Price ($)</label>
                                 <input 
                                     type="number" 
                                     required
                                     min="0"
-                                    className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="input-field"
                                     value={newProduct.price}
                                     onChange={e => setNewProduct({...newProduct, price: e.target.value})}
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Stock</label>
+                                <label className="block text-sm font-bold text-slate-700 mb-1.5">Stock Quantity</label>
                                 <input 
                                     type="number" 
                                     required
                                     min="0"
-                                    className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="input-field"
                                     value={newProduct.stock_quantity}
                                     onChange={e => setNewProduct({...newProduct, stock_quantity: e.target.value})}
                                 />
                             </div>
                          </div>
 
-                         <div className="flex gap-3 mt-6">
+                         <div className="flex gap-3 mt-8 pt-2">
                              <button 
                                  type="button" 
                                  onClick={() => setShowAddProduct(false)}
-                                 className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50 font-medium"
+                                 className="btn-secondary flex-1"
                              >
                                  Cancel
                              </button>
                              <button 
                                  type="submit" 
                                  disabled={productLoading}
-                                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50"
+                                 className="btn-primary flex-1"
                              >
                                  {productLoading ? 'Adding...' : 'Add Product'}
                              </button>
@@ -373,54 +368,100 @@ const SellerDashboard = () => {
              </div>
             )}
 
+            {/* LOCATION MODAL */}
+            {locationModalOpen && (
+                <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 animate-in fade-in zoom-in duration-200">
+                        <div className="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
+                            <h3 className="text-xl font-bold text-slate-900">Set Shop Location</h3>
+                            <button onClick={() => setLocationModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        
+                        <div className="space-y-4">
+                            <div className="bg-blue-50 text-blue-800 text-sm p-3 rounded-lg flex items-start gap-2">
+                                <MapPin size={16} className="shrink-0 mt-0.5" />
+                                <p>Tap on the map to pin your shop location.</p>
+                            </div>
+
+                            <FixedLocationPicker 
+                                onLocationSelect={setMapLocation}
+                                initialLocation={mapLocation}
+                                height="300px"
+                            />
+
+                            <button 
+                                onClick={updateLocation}
+                                disabled={!mapLocation}
+                                className="w-full btn-primary mt-4"
+                            >
+                                Confirm Location
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
         </div>
     );
 };
 
 const OrderCard = ({ order, actionLabel, onAction, variant, completed }) => {
-    const priorityColor = order.ai_priority === 1 ? 'text-red-600 bg-red-100' : 
-                          order.ai_priority === 2 ? 'text-orange-600 bg-orange-100' : 'text-green-600 bg-green-100';
-
     return (
-        <div className={`bg-white p-6 rounded-lg shadow-sm border border-gray-200 flex justify-between items-start`}>
-            <div>
-                <div className="flex items-center gap-3 mb-2">
-                    <span className="font-bold text-gray-800 text-lg">{order.product_name}</span>
-                    <span className={`px-2 py-0.5 rounded text-xs font-semibold ${priorityColor}`}>
-                        Priority {order.ai_priority}
-                    </span>
-                    <span className="px-2 py-0.5 rounded text-xs bg-indigo-100 text-indigo-700">
-                        {order.status.replace(/_/g, ' ')}
-                    </span>
-                </div>
-                <p className="text-gray-600 mb-2">Qty: {order.quantity}</p>
-                <div className="text-xs text-gray-400 mt-2 p-2 bg-gray-50 rounded">
-                    <p className="font-semibold text-gray-600">Ethics Engine Decision:</p>
-                    <p>{order.decision_explanation}</p>
-                    <p className="mt-1 text-green-600 font-medium flex items-center gap-1">
-                        <CheckCircle size={12} /> Approved by AI & Human Oversight
-                    </p>
-                </div>
+        <div className="card-base p-5 border-l-4 border-l-indigo-500">
+            <div className="flex justify-between items-start mb-2">
+                <h4 className="font-bold text-slate-900 text-md">{order.product_name}</h4>
+                <span className="text-xs font-semibold bg-gray-100 text-slate-600 px-2 py-0.5 rounded">Qty: {order.quantity}</span>
             </div>
             
-            {!completed && (
+            {order.customer_location?.city && (
+                 <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium mb-4">
+                    <MapPin size={12} /> {order.customer_location.city}
+                    <span className="text-gray-300">•</span>
+                    <span className="font-mono text-gray-400">#{order._id.slice(-6).toUpperCase()}</span>
+                </div>
+            )}
+
+
+            <div className="mb-4">
+                 {order.assigned_to ? (
+                    <div className="text-xs text-indigo-600 bg-indigo-50 p-2 rounded border border-indigo-100 flex items-center gap-2">
+                        <Truck size={14} /> 
+                        <span>Agent: <strong>{order.assigned_to.name}</strong></span>
+                    </div>
+                ) : (
+                    <div className="text-xs text-slate-500 bg-gray-50 p-2 rounded border border-gray-100 flex items-center gap-2">
+                         <Truck size={14} className="text-slate-400" />
+                         <span className="italic">Waiting for Assignment</span>
+                    </div>
+                )}
+            </div>
+            
+            {!completed ? (
                 <button 
                     onClick={onAction}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                        variant === 'blue' ? 'bg-blue-600 text-white hover:bg-blue-700' : 
-                        variant === 'yellow' ? 'bg-yellow-500 text-white hover:bg-yellow-600' : 'bg-gray-200'
+                    className={`w-full py-2 rounded-lg font-semibold text-xs uppercase tracking-wide transition-all active:scale-95 border ${
+                        variant === 'blue' ? 'bg-indigo-50 text-indigo-700 border-indigo-100 hover:bg-indigo-100' :
+                        variant === 'yellow' ? 'bg-amber-50 text-amber-700 border-amber-100 hover:bg-amber-100' :
+                        'bg-gray-100 text-gray-700 border-gray-200'
                     }`}
                 >
                     {actionLabel}
                 </button>
-            )}
-            {completed && (
-                 <div className="text-gray-400 flex items-center gap-1">
-                    <Truck size={16} /> Ready for Agent
+            ) : (
+                 <div className="w-full text-center text-green-600 bg-green-50 py-2 rounded-lg font-bold text-xs border border-green-100 uppercase tracking-wide flex items-center justify-center gap-2">
+                    <CheckCircle size={14} /> Ready for Pickup
                  </div>
             )}
         </div>
     );
 };
+
+const EmptyState = ({ message }) => (
+    <div className="py-8 text-center border-2 border-dashed border-gray-200 rounded-xl bg-gray-50/50">
+        <p className="text-sm text-slate-400 font-medium">{message}</p>
+    </div>
+);
 
 export default SellerDashboard;
