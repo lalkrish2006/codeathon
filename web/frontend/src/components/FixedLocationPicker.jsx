@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-lea
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
-// Fix Leaflet Icons
+
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
@@ -15,7 +15,7 @@ L.Icon.Default.mergeOptions({
     shadowUrl: markerShadow,
 });
 
-// Click Handler Component
+
 const MapClickHandler = ({ onLocationSelect }) => {
     useMapEvents({
         click(e) {
@@ -26,7 +26,7 @@ const MapClickHandler = ({ onLocationSelect }) => {
     return null;
 };
 
-// Map View Updater (Recenter map when position changes programmatically)
+
 const MapRecenter = ({ center }) => {
     const map = useMap();
     useEffect(() => {
@@ -37,7 +37,7 @@ const MapRecenter = ({ center }) => {
     return null;
 };
 
-// Map Invalidator (Fix for modal rendering)
+
 const MapInvalidator = () => {
     const map = useMap();
     useEffect(() => {
@@ -51,7 +51,7 @@ const FixedLocationPicker = ({
     initialLocation = null, 
     height = "400px" 
 }) => {
-    // Default to Bangalore or provided location
+    
     const defaultCenter = [12.9716, 77.5946];
     const [markerPosition, setMarkerPosition] = useState(initialLocation);
 

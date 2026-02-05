@@ -7,9 +7,9 @@ const bcrypt = require('bcryptjs');
 
 const opts = {};
 opts.jwtFromRequest = ExtractJwt.fromAuthHeaderAsBearerToken();
-opts.secretOrKey = process.env.JWT_SECRET; // Ensure this is set in .env
+opts.secretOrKey = process.env.JWT_SECRET; 
 
-// JWT Strategy - For protecting routes
+
 const jwtStrategy = new JwtStrategy(opts, async (jwt_payload, done) => {
     try {
         const user = await User.findById(jwt_payload.id);
@@ -22,8 +22,8 @@ const jwtStrategy = new JwtStrategy(opts, async (jwt_payload, done) => {
     }
 });
 
-// Local Strategy - For Login
-// We expect 'email' instead of 'username'
+
+
 const localStrategy = new LocalStrategy({ usernameField: 'email' }, async (email, password, done) => {
     try {
         const user = await User.findOne({ email });

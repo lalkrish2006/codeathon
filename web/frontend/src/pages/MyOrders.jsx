@@ -35,7 +35,7 @@ const MyOrders = () => {
             const res = await axios.get(`${API_URL}/orders`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            // Client-side filter for this user
+            
             const userOrders = res.data.filter(o => o.user._id === user.id || o.user === user.id);
             setOrders(userOrders);
             setLoading(false);
@@ -45,12 +45,12 @@ const MyOrders = () => {
         }
     };
 
-    // Filter for active orders only (Not DELIVERED)
+    
     const activeOrders = orders.filter(o => o.status !== 'DELIVERED');
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col font-sans text-slate-900">
-            {/* Header */}
+            {}
             <header className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm">
                 <div className="max-w-3xl mx-auto px-4 h-16 flex items-center justify-between">
                     <div className="flex items-center gap-4">
@@ -80,7 +80,7 @@ const MyOrders = () => {
                 ) : (
                     activeOrders.map(order => (
                         <div key={order._id} className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-200">
-                            {/* Order Header */}
+                            {}
                             <div className="p-5 border-b border-gray-100 flex flex-col sm:flex-row justify-between gap-4 bg-slate-50/50">
                                 <div>
                                     <h3 className="font-bold text-lg text-slate-900 flex items-center gap-2">
@@ -95,7 +95,7 @@ const MyOrders = () => {
                                 </div>
                             </div>
 
-                            {/* Timeline Component - Replaces Map */}
+                            {}
                             <OrderStatusTimeline order={order} />
                             
                         </div>

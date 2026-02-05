@@ -4,7 +4,7 @@ import L from 'leaflet';
 import { Truck, Store, Home } from 'lucide-react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
-// Fix for default marker icons in Leaflet with Vite/Webpack
+
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
@@ -16,7 +16,7 @@ L.Icon.Default.mergeOptions({
     shadowUrl: markerShadow,
 });
 
-// Helper to create custom icons from Lucide React components
+
 const createIcon = (IconComponent, color) => {
     const iconMarkup = renderToStaticMarkup(
         <div style={{ color: color, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '30px', height: '30px', background: 'white', borderRadius: '50%', boxShadow: '0 2px 5px rgba(0,0,0,0.3)', border: `2px solid ${color}` }}>
@@ -33,7 +33,7 @@ const createIcon = (IconComponent, color) => {
     });
 };
 
-// Component to update map view bounds based on markers
+
 const MapUpdater = ({ bounds }) => {
     const map = useMap();
     useEffect(() => {
@@ -47,11 +47,11 @@ const MapUpdater = ({ bounds }) => {
 const LiveTrackingMap = ({ order }) => {
     const [agentLocation, setAgentLocation] = useState(null);
     
-    // Extract Locations
-    // Customer Location (Fixed)
+    
+    
     const customerLoc = order?.customer_location ? [order.customer_location.latitude, order.customer_location.longitude] : null;
 
-    // Seller Location (Fixed usually)
+    
     const sellerLoc = order?.seller && (order.seller.live_location || order.seller.location?.coordinates) 
         ? [
             order.seller.live_location?.latitude || order.seller.location.coordinates[1],
@@ -59,10 +59,10 @@ const LiveTrackingMap = ({ order }) => {
           ] 
         : null;
 
-    // Agent Location (Dynamic)
-    // If agent is assigned, usage the agent's live location if available, else static
-    // NOTE: In a real app, we would listen to socket updates here for 'agentLocation'
-    // For this specific task, we'll initialize it from the order's assigned agent data
+    
+    
+    
+    
     const assignedAgent = order?.assigned_to;
     const initialAgentLoc = assignedAgent && (assignedAgent.live_location || assignedAgent.location?.coordinates)
         ? [
@@ -75,9 +75,9 @@ const LiveTrackingMap = ({ order }) => {
         if (initialAgentLoc) {
             setAgentLocation(initialAgentLoc);
         }
-    }, [order]); // Update if order changes
+    }, [order]); 
 
-    // Determine Route: Agent -> Customer OR Seller -> Customer
+    
     const isAgentAssigned = !!assignedAgent;
     const startPoint = isAgentAssigned ? agentLocation : sellerLoc;
     const endPoint = customerLoc;
@@ -108,7 +108,7 @@ const LiveTrackingMap = ({ order }) => {
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
 
-                {/* Customer Marker */}
+                {}
                 <Marker position={endPoint} icon={createIcon(Home, '#2563eb')}>
                     <Popup>
                         <div className="text-center">
@@ -118,7 +118,7 @@ const LiveTrackingMap = ({ order }) => {
                     </Popup>
                 </Marker>
 
-                {/* Seller Marker (Only if Agent NOT assigned) */}
+                {}
                 {!isAgentAssigned && sellerLoc && (
                     <Marker position={sellerLoc} icon={createIcon(Store, '#ea580c')}>
                          <Popup>
@@ -130,7 +130,7 @@ const LiveTrackingMap = ({ order }) => {
                     </Marker>
                 )}
 
-                 {/* Agent Marker (Only if Agent IS assigned) */}
+                 {}
                  {isAgentAssigned && agentLocation && (
                     <Marker position={agentLocation} icon={createIcon(Truck, '#16a34a')}>
                          <Popup>
@@ -142,20 +142,20 @@ const LiveTrackingMap = ({ order }) => {
                     </Marker>
                 )}
 
-                {/* Route Line */}
+                {}
                 <Polyline 
                     positions={routePath} 
                     pathOptions={{ 
-                        color: isAgentAssigned ? '#16a34a' : '#ea580c', // Green if Agent, Orange if Seller
+                        color: isAgentAssigned ? '#16a34a' : '#ea580c', 
                         weight: 4, 
-                        dashArray: isAgentAssigned ? null : '10, 10', // Dashed if pending assignment
+                        dashArray: isAgentAssigned ? null : '10, 10', 
                         opacity: 0.8
                     }} 
                 />
 
                 <MapUpdater bounds={bounds} />
 
-                {/* Legend Overlay */}
+                {}
                 <div className="absolute top-4 right-4 bg-white/90 backdrop-blur p-3 rounded-lg shadow-md border border-gray-200 z-[1000] text-xs">
                     <h4 className="font-bold text-slate-800 mb-2">Live Tracking</h4>
                     <div className="space-y-2">

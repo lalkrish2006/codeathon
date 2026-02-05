@@ -10,13 +10,13 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check local storage for token
+    
     const token = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
     
     if (token && storedUser) {
       setUser(JSON.parse(storedUser));
-      // Set default axios header
+      
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     }
     setLoading(false);
@@ -41,7 +41,7 @@ export const AuthProvider = ({ children }) => {
   const register = async (name, email, password, role) => {
       try {
           await axios.post('http://localhost:5000/api/auth/register', { name, email, password, role });
-          // Auto login after register? or just return true
+          
           return true;
       } catch (error) {
           throw error.response?.data?.message || 'Registration failed';

@@ -9,14 +9,14 @@ const CustomerDashboard = () => {
     const { user, logout } = useAuth();
     const [products, setProducts] = useState([]);
     
-    // Purchase Modal State
+    
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [modalOpen, setModalOpen] = useState(false);
     const [quantity, setQuantity] = useState(1);
     const [context, setContext] = useState("");
     const [loading, setLoading] = useState(false);
     
-    // Location State
+    
     const [locationMode, setLocationMode] = useState('map');
     const [addressText, setAddressText] = useState("");
     const [mapLocation, setMapLocation] = useState(null);
@@ -142,7 +142,7 @@ const CustomerDashboard = () => {
             });
             
             setModalOpen(false);
-            // Optionally redirect to My Orders
+            
             if (window.confirm("Order placed successfully! view status in 'My Orders'?")) {
                  window.location.href = '/customer/orders';
             }
@@ -156,7 +156,7 @@ const CustomerDashboard = () => {
 
     return (
         <div className="min-h-screen bg-gray-50 pb-20 font-sans text-slate-900">
-            {/* Header */}
+            {}
             <header className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm">
                 <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -184,7 +184,7 @@ const CustomerDashboard = () => {
 
             <main className="max-w-7xl mx-auto px-4 py-8 space-y-12">
                 
-                {/* PRODUCTS SECTION */}
+                {}
                 <section>
                     <div className="flex items-center justify-between mb-6">
                         <div>
@@ -235,7 +235,7 @@ const CustomerDashboard = () => {
                 </section>
             </main>
 
-            {/* PURCHASE MODAL - Clean & Functional */}
+            {}
             {modalOpen && selectedProduct && (
                 <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
                     <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">

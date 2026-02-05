@@ -12,10 +12,10 @@ class PackageType(str, Enum):
     UNKNOWN = "unknown"
 
 class UrgencyLevel(str, Enum):
-    CRITICAL = "critical"  # Life-saving
-    HIGH = "high"          # Time-sensitive, potential harm
-    MEDIUM = "medium"      # Standard delivery
-    LOW = "low"            # No rush
+    CRITICAL = "critical"  
+    HIGH = "high"          
+    MEDIUM = "medium"      
+    LOW = "low"            
 
 class EthicalCategory(str, Enum):
     LIFE_SAVING = "life_saving"
@@ -26,7 +26,7 @@ class PackageInput(BaseModel):
     id: str
     description: str
     sender: str
-    recipient_type: str  # e.g., "hospital", "residential", "government"
+    recipient_type: str  
     claimed_urgency: Optional[str] = None
     is_hazmat: bool = False
     metadata: Optional[Dict] = {}
@@ -41,22 +41,22 @@ class MLPrediction(BaseModel):
 class LLMAnalysis(BaseModel):
     detected_category: PackageType
     intent: str
-    is_false_positive: bool # e.g. "Model Kit" vs "Real"
-    urgency_modifier: float = 0.0 # -0.5 to +0.5
-    new_keywords: List[str] = [] # For adaptive ML
+    is_false_positive: bool 
+    urgency_modifier: float = 0.0 
+    new_keywords: List[str] = [] 
     reasoning: str
 
 class DecisionLog(BaseModel):
     package_id: str
-    final_priority_score: int  # 1 (Highest) to 10 (Lowest)
-    decision_source: str       # "ETHICAL_RULE" or "ML_MODEL"
+    final_priority_score: int  
+    decision_source: str       
     ethical_category: EthicalCategory
     ml_prediction: Optional[MLPrediction] = None
     llm_analysis: Optional[LLMAnalysis] = None
     reasoning: str
     timestamp: datetime = Field(default_factory=datetime.now)
 
-    # Phase 4 Extensions
+    
     confidence_score: float = Field(default=0.0, ge=0.0, le=1.0)
     requires_human_approval: bool = False
     human_approved: Optional[bool] = None

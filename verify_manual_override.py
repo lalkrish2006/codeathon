@@ -3,7 +3,7 @@ import json
 import time
 
 BASE_URL = "http://localhost:5000/api"
-AUTH_TOKEN = "" # Needs to be logged in
+AUTH_TOKEN = "" 
 ADMIN_EMAIL = "admin@example.com"
 ADMIN_PASSWORD = "password123"
 
@@ -16,7 +16,7 @@ def login():
         if res.status_code == 200:
             return res.json().get('token')
         
-        # Try Registering
+        
         print("Login failed, trying to register...")
         reg_res = requests.post(f"{BASE_URL}/auth/register", json={
             "name": "Test Admin",
@@ -26,7 +26,7 @@ def login():
         })
         print(f"Registration Status: {reg_res.status_code}")
         if reg_res.status_code == 201:
-             # Login again
+             
              l_res = requests.post(f"{BASE_URL}/auth/login", json={
                 "email": ADMIN_EMAIL, 
                 "password": ADMIN_PASSWORD
@@ -48,7 +48,7 @@ def verify_allocation():
 
     headers = {"Authorization": f"Bearer {token}"}
 
-    # 1. Fetch Agents
+    
     print("\n[1] Fetching Agents...")
     res = requests.get(f"{BASE_URL}/users?role=delivery_agent", headers=headers)
     if res.status_code != 200:
@@ -62,15 +62,15 @@ def verify_allocation():
     agent_id = agents[0]['_id']
     print(f"  > Found {len(agents)} agents. Using Agent: {agents[0]['name']} ({agent_id})")
 
-    # 1.5 Create Seller & Product
+    
     print("\n[1.5] Setting up Critical Product...")
-    # Register Seller
+    
     seller_creds = {"name": "PharmaSeller", "email": "pharma@test.com", "password": "password123", "role": "seller"}
     requests.post(f"{BASE_URL}/auth/register", json=seller_creds)
     s_res = requests.post(f"{BASE_URL}/auth/login", json={"email": "pharma@test.com", "password": "password123"})
     seller_token = s_res.json().get('token')
     
-    # Create Product
+    
     prod_payload = {
         "name": "LifeSaving Medicine",
         "base_description": "Critical heart medication",
@@ -84,10 +84,10 @@ def verify_allocation():
         product_id = p_res.json()['_id']
         print(f"  > Created Critical Product: {product_id}")
     else:
-        # Fallback to searching
+        
         res = requests.get(f"{BASE_URL}/products", headers=headers)
         products = res.json()
-        # Find one with 'med'
+        
         matches = [p for p in products if 'med' in p['name'].lower()]
         if matches:
             product_id = matches[0]['_id']
@@ -96,7 +96,7 @@ def verify_allocation():
             product_id = products[0]['_id'] 
             print("  > WARNING: unique critical product creation failed, using random.")
 
-    # 3. Create Order (Critical Item)
+    
     print("\n[2] Creating High Priority Order...")
     order_payload = {
         "product_id": product_id,
@@ -124,7 +124,7 @@ def verify_allocation():
     else:
         print("  [WARNING] System did NOT pre-calculate routing (maybe due to location data).")
 
-    # 4. Override Test
+    
     print("\n[3] Testing Admin Override...")
     override_payload = {
         "approved": True,

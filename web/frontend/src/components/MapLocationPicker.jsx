@@ -3,9 +3,9 @@ import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from 're
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
-// ----------------------------------------------------------------------
-// 1. FIX LEAFLET ICONS (MANDATORY)
-// ----------------------------------------------------------------------
+
+
+
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
@@ -17,23 +17,23 @@ L.Icon.Default.mergeOptions({
     shadowUrl: markerShadow,
 });
 
-// ----------------------------------------------------------------------
-// 2. HELPER COMPONENTS
-// ----------------------------------------------------------------------
 
-// Handles Click Events: Captures Lat/Lng and notifies parent
+
+
+
+
 const ClickHandler = ({ onMapClick, readOnly }) => {
     useMapEvents({
         click(e) {
             if (readOnly) return;
-            // STRICT REQUIREMENT: Capture lat/lng immediately
+            
             onMapClick({ lat: e.latlng.lat, lng: e.latlng.lng });
         },
     });
     return null;
 };
 
-// Handles View Updates: Pans map to new center if changed programmatically
+
 const MapRecenter = ({ center }) => {
     const map = useMap();
     useEffect(() => {
@@ -44,7 +44,7 @@ const MapRecenter = ({ center }) => {
     return null;
 };
 
-// Fixes Modal Rendering: Invalidate size to ensure map renders correctly in hidden/modal containers
+
 const MapResizer = () => {
     const map = useMap();
     useEffect(() => {
@@ -57,20 +57,20 @@ const MapResizer = () => {
     return null;
 };
 
-// ----------------------------------------------------------------------
-// 3. MAIN COMPONENT
-// ----------------------------------------------------------------------
+
+
+
 const MapLocationPicker = ({ 
-    onLocationSelect,      // Callback( { lat, lng } )
-    initialLocation,       // { lat, lng } | null
-    defaultCenter = { lat: 12.9716, lng: 77.5946 }, // Default: Bangalore
+    onLocationSelect,      
+    initialLocation,       
+    defaultCenter = { lat: 12.9716, lng: 77.5946 }, 
     readOnly = false,
-    height = "400px"       // Fixed height
+    height = "400px"       
 }) => {
-    // Local state for immediate UI update
+    
     const [selectedPos, setSelectedPos] = useState(initialLocation);
 
-    // Sync with props
+    
     useEffect(() => {
         if (initialLocation) {
             setSelectedPos(initialLocation);
@@ -80,16 +80,16 @@ const MapLocationPicker = ({
     const handleMapClick = (latlng) => {
         if (readOnly) return;
         
-        // 1. Update Local State
+        
         setSelectedPos(latlng);
         
-        // 2. Notify Parent
+        
         if (onLocationSelect) {
             onLocationSelect(latlng);
         }
     };
 
-    // Determine center: Selected Position > Initial Location > Default Center
+    
     const currentCenter = selectedPos || defaultCenter;
 
     return (
@@ -108,12 +108,12 @@ const MapLocationPicker = ({
                         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                     />
                     
-                    {/* Utilities */}
+                    {}
                     <MapResizer />
                     <ClickHandler onMapClick={handleMapClick} readOnly={readOnly} />
                     {selectedPos && <MapRecenter center={selectedPos} />}
 
-                    {/* Marker */}
+                    {}
                     {selectedPos && (
                         <Marker position={selectedPos}>
                             <Popup>
@@ -128,7 +128,7 @@ const MapLocationPicker = ({
                     )}
                 </MapContainer>
 
-                {/* Instruction Overlay */}
+                {}
                 {!readOnly && (
                     <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
                         <div className="bg-white/90 backdrop-blur text-indigo-800 text-xs font-bold px-4 py-2 rounded-full shadow-md border border-indigo-100 flex items-center gap-2">
@@ -138,7 +138,7 @@ const MapLocationPicker = ({
                 )}
             </div>
 
-            {/* Coordinate Display */}
+            {}
             {!readOnly && selectedPos && (
                 <div className="bg-slate-50 border border-slate-200 rounded p-3 text-xs font-mono text-slate-600 flex justify-between items-center">
                     <span>LAT: <strong className="text-slate-900">{selectedPos.lat.toFixed(6)}</strong></span>

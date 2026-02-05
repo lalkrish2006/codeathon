@@ -6,7 +6,7 @@ async function run() {
     try {
         console.log("=== STARTING VERIFICATION ===");
 
-        // 1. Register/Login SELLER
+        
         let sellerToken;
         try {
             const res = await axios.post(`${API_URL}/auth/register`, {
@@ -17,7 +17,7 @@ async function run() {
             });
             sellerToken = res.data.token;
         } catch (e) {
-            // Login if exists
+            
              const res = await axios.post(`${API_URL}/auth/login`, {
                 email: "seller_test@example.com",
                 password: "password123"
@@ -26,7 +26,7 @@ async function run() {
         }
         console.log("[PASS] Seller Authenticated");
 
-        // 2. Create PRODUCT
+        
         const productRes = await axios.post(`${API_URL}/products`, {
             name: "EpiPen LifeSaver",
             base_description: "Medical grade epinephrine auto-injector for anaphylactic shock.",
@@ -37,7 +37,7 @@ async function run() {
         const productId = productRes.data._id;
         console.log(`[PASS] Product Created: ${productRes.data.name} (${productId})`);
 
-        // 3. Register/Login CUSTOMER
+        
         let customerToken;
         try {
             const res = await axios.post(`${API_URL}/auth/register`, {
@@ -56,7 +56,7 @@ async function run() {
         }
         console.log(`[PASS] Customer Authenticated. Token: ${customerToken ? customerToken.substring(0, 10) + '...' : 'INVALID'}`);
 
-        // 4. Place ORDER
+        
         const context = "My son is having a severe allergic reaction right now.";
         console.log("Placing order with Product ID:", productId);
         
@@ -70,7 +70,7 @@ async function run() {
         console.log(`[INFO] Combined Description Sent to AI: \n   "${orderRes.data.description}"`);
         console.log(`[INFO] AI Priority: ${orderRes.data.ai_priority}`);
 
-        // 5. Verify Combination
+        
         if (orderRes.data.description.includes("Medical grade epinephrine") && orderRes.data.description.includes(context)) {
             console.log("[SUCCESS] Description correctly combines Product Base + Customer Context");
         } else {

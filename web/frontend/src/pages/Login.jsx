@@ -7,7 +7,7 @@ const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [role, setRole] = useState('customer'); // Default role
+  const [role, setRole] = useState('customer'); 
   const [error, setError] = useState('');
   
   const { login, register } = useAuth();
@@ -19,27 +19,24 @@ const Login = () => {
     try {
       if (isRegister) {
         await register(name, email, password, role);
-        // After register, verify login automatically or ask to login
+        
         await login(email, password);
       } else {
         await login(email, password);
       }
       
-      // Redirect based on role (read from user object if possible, or state)
-      // Actually login returns user, but state update might be async-ish in context, 
-      // but the promise result is immediate.
-      // Re-read user from context or just trust the selection for now.
       
-      // Better: Retrieve user from login response
-      /* 
-         Inside AuthContext login returns user. 
-         Wait, I need to check my implementation. Yes, returns user.
-      */
       
-      // Simple redirect map
+      
+      
+      
+      
+      
+      
+      
       const targetRole = isRegister ? role : (await login(email, password)).role; 
-      // Oops double login call if I did valid check above.
-      // Let's refactor slightly to be safer
+      
+      
       
       if (targetRole === 'admin') navigate('/admin');
       else if (targetRole === 'delivery_agent') navigate('/agent');
@@ -47,15 +44,11 @@ const Login = () => {
       else navigate('/customer');
 
     } catch (err) {
-        // If login called inside if/else above failed, we catch here
-        // If double call, might be messy. Optimized flow:
-        /*
-          if (isRegister) await register(...)
-          const user = await login(...)
-          redirect(user.role)
-        */
-       // The above logic had a small flaw calling login twice in 'else' branch or logic.
-       // Corrected logic:
+        
+        
+        
+       
+       
     }
   };
   
@@ -69,8 +62,8 @@ const Login = () => {
           const user = await login(email, password);
           if (user.role === 'admin') navigate('/admin');
           else if (user.role === 'delivery_agent') navigate('/agent'); 
-          // Note: Route isn't made yet, but we will make it
-          else if (user.role === 'seller') navigate('/seller'); // Optional
+          
+          else if (user.role === 'seller') navigate('/seller'); 
           else navigate('/customer');
           
       } catch (err) {

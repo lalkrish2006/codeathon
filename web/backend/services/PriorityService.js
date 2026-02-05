@@ -1,14 +1,9 @@
 const User = require('../models/User');
 
-/**
- * Calculates distance between two coordinates in kilometers using Haversine formula.
- * @param {number[]} coord1 [longitude, latitude]
- * @param {number[]} coord2 [longitude, latitude]
- * @returns {number} Distance in km
- */
+
 const calculateDistance = (coord1, coord2) => {
     const toRad = (value) => (value * Math.PI) / 180;
-    const R = 6371; // Radius of Earth in km
+    const R = 6371; 
     const dLat = toRad(coord2[1] - coord1[1]);
     const dLon = toRad(coord2[0] - coord1[0]);
     const lat1 = toRad(coord1[1]);
@@ -21,7 +16,7 @@ const calculateDistance = (coord1, coord2) => {
 };
 
 const findNearestUser = async (role, longitude, latitude) => {
-    // GeoJSON query for nearest available user of specific role
+    
     const users = await User.find({
         role: role,
         isAvailable: true,
@@ -36,10 +31,7 @@ const findNearestUser = async (role, longitude, latitude) => {
 };
 
 const PriorityService = {
-    /**
-     * Calculates the best routing option without applying it.
-     * Returns the recommended user and reasoning.
-     */
+    
     calculateRouting: async (order) => {
         if (!order.delivery_location || !order.delivery_location.coordinates) {
              return { assignedUser: null, reason: "Missing location data" };
@@ -47,13 +39,13 @@ const PriorityService = {
 
         const [lng, lat] = order.delivery_location.coordinates;
         
-        // 1. Find Nearest Seller
+        
         const nearestSeller = await findNearestUser('seller', lng, lat);
         
-        // 2. Find Nearest Delivery Agent
+        
         const nearestAgent = await findNearestUser('delivery_agent', lng, lat);
 
-        // 3. Compare Distances & Assign
+        
         let assignedUser = null;
         let deliveryType = 'STANDARD_SCHEDULED';
         let reason = "";
@@ -63,7 +55,7 @@ const PriorityService = {
 
         if (distToSeller < distToAgent) {
             assignedUser = nearestSeller;
-            deliveryType = 'INSTANT_LOCAL_FULFILLMENT'; // Seller delivers directly
+            deliveryType = 'INSTANT_LOCAL_FULFILLMENT'; 
             reason = `Seller is closer (${distToSeller.toFixed(2)}km) than nearest agent (${distToAgent === Infinity ? 'None' : distToAgent.toFixed(2) + 'km'}).`;
         } else if (nearestAgent) {
             assignedUser = nearestAgent;
@@ -77,8 +69,8 @@ const PriorityService = {
     },
 
     assignOrder: async (order) => {
-        // Only process high-priority orders (<=2) that have received Human Approval
-        // Logic: Standard orders > 2 follow standard flow (manual assignment)
+        
+        
         
         console.log(`[PriorityService] Processing Routing for Order ${order._id}`);
 
@@ -87,7 +79,7 @@ const PriorityService = {
         if (assignedUser) {
             order.assigned_to = assignedUser._id;
             order.delivery_type = deliveryType;
-            order.assignment_reason = reason; // Persist the logic
+            order.assignment_reason = reason; 
             console.log(`[PriorityService] Success: ${reason}`);
         } else {
              console.log(`[PriorityService] Failed: ${reason}`);

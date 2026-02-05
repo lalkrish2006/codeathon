@@ -70,6 +70,27 @@ const AdminDashboard = () => {
       }
   }
 
+  const handleManualAssign = async (orderId, agentId) => {
+      try {
+          const res = await axios.patch(`http://localhost:5000/api/orders/${orderId}/assign`, {
+              agent_id: agentId
+          });
+          
+          const assignedAgent = agents.find(a => a._id === agentId);
+          const agentName = assignedAgent ? assignedAgent.name : 'Unknown Agent';
+          
+          alert(`✅ Assignment Confirmed\n\nAgent: ${agentName}\nOrder ID: ${orderId}\nPriority Level: ${res.data.ai_priority}`);
+          
+          
+          if (selectedOrder && selectedOrder._id === orderId) {
+            setSelectedOrder(null);
+            setOverrideAgentId('');
+          }
+      } catch (err) {
+          alert('Assignment failed: ' + (err.response?.data?.message || err.message));
+      }
+  };
+
   const formatLoc = (usr) => {
       if (usr?.live_location && usr.live_location.latitude) {
           return `Live: ${usr.live_location.latitude.toFixed(4)}, ${usr.live_location.longitude.toFixed(4)}`;
@@ -82,7 +103,7 @@ const AdminDashboard = () => {
 
     return (
         <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex flex-col">
-            {/* Admin Top Bar */}
+            {}
             <header className="bg-white border-b border-gray-200 sticky top-0 z-20 shadow-sm h-16">
                 <div className="max-w-[1600px] mx-auto px-6 h-full flex justify-between items-center">
                     <div className="flex items-center space-x-3">
@@ -102,10 +123,10 @@ const AdminDashboard = () => {
                 </div>
             </header>
 
-            {/* Main Content */}
+            {}
             <main className="flex-1 max-w-[1600px] w-full mx-auto px-6 py-8">
                 
-                {/* Metric Summary */}
+                {}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
                     <StatCard 
                         label="Pending Review" 
@@ -137,7 +158,7 @@ const AdminDashboard = () => {
                     />
                 </div>
 
-                {/* Orders Data Grid */}
+                {}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-[calc(100vh-280px)]">
                     <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50/50">
                         <h2 className="text-sm font-bold text-slate-700 flex items-center gap-2">
@@ -218,12 +239,12 @@ const AdminDashboard = () => {
                     </div>
                 </div>
 
-                {/* INSPECT MODAL */}
+                {}
                 {selectedOrder && (
                     <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
                         <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full flex flex-col max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                             
-                            {/* Modal Header */}
+                            {}
                             <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
                                 <div>
                                     <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
@@ -238,9 +259,9 @@ const AdminDashboard = () => {
                             <div className="flex-1 overflow-y-auto p-6 bg-white">
                                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                                     
-                                    {/* COLUMN 1: INFORMATION */}
+                                    {}
                                     <div className="space-y-6 lg:col-span-2">
-                                        {/* Critical Context */}
+                                        {}
                                         {selectedOrder.customer_context && (
                                             <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg">
                                                 <h4 className="text-xs font-bold text-red-700 uppercase mb-1 flex items-center gap-2">
@@ -250,7 +271,7 @@ const AdminDashboard = () => {
                                             </div>
                                         )}
 
-                                        {/* AI Analysis */}
+                                        {}
                                         <div className="card-base p-5 border border-gray-200 shadow-none">
                                             <h4 className="font-bold text-xs text-slate-500 uppercase mb-3 flex items-center gap-2">
                                                 <Shield size={14} className="text-indigo-500" /> AI Ethics Decision
@@ -273,7 +294,7 @@ const AdminDashboard = () => {
                                             </div>
                                         </div>
 
-                                        {/* Customer Details */}
+                                        {}
                                         <div className="card-base p-5 border border-gray-200 shadow-none">
                                              <h4 className="font-bold text-xs text-slate-500 uppercase mb-3">Customer Entity</h4>
                                              <div className="flex items-center gap-3">
@@ -291,7 +312,7 @@ const AdminDashboard = () => {
                                         </div>
                                     </div>
 
-                                    {/* COLUMN 2: ACTIONS */}
+                                    {}
                                     <div className="space-y-4">
                                         <div className="card-base p-5 bg-gray-50 border border-gray-200 shadow-none">
                                             <h4 className="font-bold text-xs text-slate-500 uppercase mb-3">Logistics Status</h4>
@@ -320,6 +341,41 @@ const AdminDashboard = () => {
                                                         <div className="text-sm text-slate-500 italic mb-3">Analysis Pending...</div>
                                                     )}
                                                 </>
+                                            )}
+
+                                            {}
+                                            {selectedOrder.ai_priority > 2 && !selectedOrder.assigned_to && (
+                                                 <div className="bg-orange-50 p-4 rounded-lg border border-orange-100 mb-4">
+                                                     <h4 className="flex items-center gap-2 text-xs font-bold text-orange-800 uppercase mb-2">
+                                                         <AlertTriangle size={14} /> Manual Assignment Required
+                                                     </h4>
+                                                     <p className="text-xs text-orange-700 mb-3 leading-tight">
+                                                         Priority Level {selectedOrder.ai_priority} requires manual agent selection.
+                                                     </p>
+                                                     
+                                                     <div className="space-y-2">
+                                                         <select 
+                                                             className="input-field bg-white"
+                                                             value={overrideAgentId} 
+                                                             onChange={(e) => setOverrideAgentId(e.target.value)}
+                                                         >
+                                                             <option value="">-- Select Delivery Agent --</option>
+                                                             {agents.map(agent => (
+                                                                 <option key={agent._id} value={agent._id}>
+                                                                     {agent.name} {agent.isAvailable ? '(Online)' : '(Offline)'}
+                                                                 </option>
+                                                             ))}
+                                                         </select>
+                                                         
+                                                         <button 
+                                                             onClick={() => handleManualAssign(selectedOrder._id, overrideAgentId)}
+                                                             disabled={!overrideAgentId}
+                                                             className="w-full bg-orange-600 text-white font-bold py-2 rounded text-xs hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                                                         >
+                                                             Assign Agent
+                                                         </button>
+                                                     </div>
+                                                 </div>
                                             )}
                                         
                                             {selectedOrder.requires_human_approval && !selectedOrder.human_approved && selectedOrder.status === 'HUMAN_APPROVAL_REQUIRED' ? (

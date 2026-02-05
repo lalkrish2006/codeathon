@@ -11,9 +11,9 @@ const SellerDashboard = () => {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     
-    // Product Management State
+    
     const [products, setProducts] = useState([]);
-    const [activeTab, setActiveTab] = useState('orders'); // 'orders' or 'products'
+    const [activeTab, setActiveTab] = useState('orders'); 
     const [showAddProduct, setShowAddProduct] = useState(false);
     const [newProduct, setNewProduct] = useState({ name: '', base_description: '', price: '', stock_quantity: '' });
     const [productLoading, setProductLoading] = useState(false);
@@ -26,7 +26,7 @@ const SellerDashboard = () => {
         
         const socket = io('http://localhost:5000');
         socket.on('order_approved_for_seller', (newOrder) => {
-             // Add new order or update existing
+             
              setOrders(prev => {
                 const exists = prev.find(o => o._id === newOrder._id);
                 if (exists) return prev.map(o => o._id === newOrder._id ? newOrder : o);
@@ -103,7 +103,7 @@ const SellerDashboard = () => {
             await axios.patch(`${API_URL}/orders/${orderId}/status`, { status: newStatus }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            // Update local state
+            
             setOrders(prev => prev.map(o => o._id === orderId ? { ...o, status: newStatus } : o));
         } catch (error) {
             console.error("Error updating status:", error);
@@ -113,7 +113,7 @@ const SellerDashboard = () => {
 
 
 
-// ... inside component
+
     const [locationModalOpen, setLocationModalOpen] = useState(false);
     const [mapLocation, setMapLocation] = useState(null);
 
@@ -144,7 +144,7 @@ const SellerDashboard = () => {
 
     return (
         <div className="min-h-screen flex font-sans bg-gray-50 text-slate-900">
-            {/* Sidebar */}
+            {}
             <aside className="w-64 bg-white border-r border-gray-200 flex-shrink-0 hidden md:flex flex-col fixed h-full z-10">
                 <div className="p-6 border-b border-gray-100 flex items-center gap-2">
                     <ShoppingBag className="text-indigo-600" />
@@ -169,7 +169,7 @@ const SellerDashboard = () => {
                 </div>
             </aside>
 
-            {/* Main Content */}
+            {}
             <main className="flex-1 md:ml-64 p-8">
                 <header className="flex justify-between items-center mb-8">
                     <div>
@@ -178,7 +178,7 @@ const SellerDashboard = () => {
                     </div>
                    
                     <div className="flex items-center gap-4">
-                        {/* Location Indicator */}
+                        {}
                         <div className="bg-white px-4 py-2 rounded-lg border border-gray-200 shadow-sm flex items-center gap-3">
                              <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse"></div>
                              <div>
@@ -205,7 +205,7 @@ const SellerDashboard = () => {
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                            {/* APPROVED ORDERS SECTION */}
+                            {}
                             <section className="flex flex-col gap-4">
                                 <div className="flex items-center justify-between">
                                     <h3 className="font-bold text-slate-800">Pending Action <span className="text-slate-400 font-normal">({approvedOrders.length})</span></h3>
@@ -222,7 +222,7 @@ const SellerDashboard = () => {
                                 {approvedOrders.length === 0 && <EmptyState message="No pending orders" />}
                             </section>
 
-                            {/* PACKED ORDERS SECTION */}
+                            {}
                             <section className="flex flex-col gap-4">
                                 <div className="flex items-center justify-between">
                                     <h3 className="font-bold text-slate-800">Packed & Ready <span className="text-slate-400 font-normal">({packedOrders.length})</span></h3>
@@ -239,7 +239,7 @@ const SellerDashboard = () => {
                                 {packedOrders.length === 0 && <EmptyState message="No packed orders" />}
                             </section>
 
-                             {/* READY ORDERS SECTION */}
+                             {}
                              <section className="flex flex-col gap-4">
                                 <div className="flex items-center justify-between">
                                     <h3 className="font-bold text-slate-800">Awaiting Pickup <span className="text-slate-400 font-normal">({readyOrders.length})</span></h3>
@@ -257,7 +257,7 @@ const SellerDashboard = () => {
                         </div>
                     )
                 ) : (
-                    /* PRODUCT MANAGEMENT TAB */
+                    
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                         {products.length === 0 && (
                             <div className="col-span-full card-base p-12 text-center border-dashed border-gray-300">
@@ -288,7 +288,7 @@ const SellerDashboard = () => {
                 )}
             </main>
 
-            {/* ADD PRODUCT MODAL */}
+            {}
             {showAddProduct && (
                  <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
                  <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 animate-in fade-in zoom-in duration-200">
@@ -368,7 +368,7 @@ const SellerDashboard = () => {
              </div>
             )}
 
-            {/* LOCATION MODAL */}
+            {}
             {locationModalOpen && (
                 <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
                     <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 animate-in fade-in zoom-in duration-200">

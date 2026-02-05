@@ -3,10 +3,10 @@ const router = express.Router();
 const Product = require('../models/Product');
 const passport = require('passport');
 
-// Middleware
+
 const verifyToken = passport.authenticate('jwt', { session: false });
 
-// GET ALL PRODUCTS (Public/Customer)
+
 router.get('/', async (req, res) => {
     try {
         const products = await Product.find().populate('seller', 'name email');
@@ -16,7 +16,7 @@ router.get('/', async (req, res) => {
     }
 });
 
-// GET SELLER PRODUCTS
+
 router.get('/seller', verifyToken, async (req, res) => {
     try {
         if (req.user.role !== 'seller') {
@@ -29,7 +29,7 @@ router.get('/seller', verifyToken, async (req, res) => {
     }
 });
 
-// CREATE PRODUCT (Seller Only)
+
 router.post('/', verifyToken, async (req, res) => {
     try {
         if (req.user.role !== 'seller') {
@@ -53,7 +53,7 @@ router.post('/', verifyToken, async (req, res) => {
     }
 });
 
-// UPDATE PRODUCT
+
 router.put('/:id', verifyToken, async (req, res) => {
     try {
         const product = await Product.findById(req.params.id);
@@ -71,7 +71,7 @@ router.put('/:id', verifyToken, async (req, res) => {
     }
 });
 
-// DELETE PRODUCT
+
 router.delete('/:id', verifyToken, async (req, res) => {
      try {
         const product = await Product.findById(req.params.id);
@@ -81,7 +81,7 @@ router.delete('/:id', verifyToken, async (req, res) => {
             return res.status(403).json({ message: "Unauthorized" });
         }
 
-        await product.deleteOne(); // or findByIdAndDelete
+        await product.deleteOne(); 
         res.json({ message: "Product deleted" });
     } catch (error) {
         res.status(500).json({ message: error.message });

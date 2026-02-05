@@ -1,10 +1,10 @@
 const axios = require('axios');
 
 const API_URL = 'http://localhost:5000/api';
-// We need to bypass auth for raw priority testing if possible, OR use the order creation flow.
-// Order creation requires Auth. I will use the Python endpoint DIRECTLY to check core logic?
-// User asked: "Return final_priority ONLY after ethical validation." and "Ensure priority is deterministic".
-// Testing Python endpoint is cleaner for logic verification.
+
+
+
+
 const PYTHON_URL = 'http://localhost:8000/prioritize';
 
 const cases = [
@@ -18,7 +18,7 @@ const cases = [
         name: "Non-Critical: Trekking Gear",
         description: "Need oxygen cylinder for trekking trip in Himalayas.",
         expected_priority: 10,
-        expected_override: true // Rule says "Trekking" -> 10.
+        expected_override: true 
     },
     {
         name: "Future Use: Just in case",
@@ -35,13 +35,13 @@ const cases = [
     {
         name: "Misuse: Pay Extra",
         description: "I will pay extra double price for urgent delivery of trekking gear.",
-        expected_priority: 10, // Should NOT be high priority
+        expected_priority: 10, 
         check_reasoning: "MISUSE FLAG"
     },
     {
         name: "Misuse: Bribe (Critical Item)",
         description: "I will bribe you for urgent vaccine delivery.", 
-        expected_priority: 10, // STRICT ETHICAL CLAMP (Was 1, now forced to 10)
+        expected_priority: 10, 
         check_reasoning: "Payment-based urgency is not allowed",
         check_misuse: true
     },
@@ -55,7 +55,7 @@ const cases = [
     {
         name: "Calibration: Stable/Backup (Downgrade)",
         description: "Need oxygen cylinder for stable daily support.",
-        expected_priority: 3, // Oxygen (P1) + 2 Downgrade = P3.
+        expected_priority: 3, 
         check_reasoning: "[Calibration] Urgency downgraded"
     },
     {
@@ -67,7 +67,7 @@ const cases = [
     {
         name: "Ethics: Travel (Non-Critical)",
         description: "Need oxygen urgent for travel.",
-        expected_priority: 10, // "travel" -> Non-critical -> P10
+        expected_priority: 10, 
         check_reasoning: "Detected recreational keyword"
     }
 ];
@@ -90,7 +90,7 @@ async function run() {
             console.log(`Input: "${test.description}"`);
             console.log(`Output: Priority ${data.final_priority_score} | MisuseFlag: ${data.misuse_flag} | Reasoning: ${data.reasoning.substring(0, 50)}...`);
             
-            // Checks
+            
             let pass = true;
             if (test.expected_priority && data.final_priority_score !== test.expected_priority) {
                 console.error(`[FAIL] Expected Priority ${test.expected_priority}, got ${data.final_priority_score}`);

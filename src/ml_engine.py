@@ -4,7 +4,7 @@ from typing import List
 
 class ContextClassifier:
     def __init__(self):
-        # Weighted keywords
+        
         self.category_keywords = {
             PackageType.MEDICAL: ["medicine", "pill", "pharma", "clinical", "doctor", "nurse", "prescription", "icu", "ward"],
             PackageType.LEGAL: ["court", "summon", "affidavit", "contract", "legal", "lawyer", "judicial"],
@@ -13,7 +13,7 @@ class ContextClassifier:
             PackageType.ESSENTIAL: ["food", "water", "groceries", "hygiene", "formula"]
         }
         
-        # Sender type weights
+        
         self.sender_weights = {
             "hospital": 0.9,
             "pharmacy": 0.8,
@@ -23,7 +23,7 @@ class ContextClassifier:
             "individual": 0.1
         }
         
-        # Recipient type weights
+        
         self.recipient_weights = {
             "hospital": 0.9,
             "emergency_center": 0.95,
@@ -32,15 +32,11 @@ class ContextClassifier:
             "office": 0.3
         }
         
-        # New: Tracking learned keywords for audit
+        
         self.learned_keywords = []
 
     def update_model(self, new_keywords: List[str], category: PackageType):
-        """
-        Adaptive Learning: Updates the keyword dictionary dynamically.
-        In a real system, this would queue for batch retraining or DB update.
-        Here we update in-memory weights.
-        """
+
         for kw in new_keywords:
             kw_lower = kw.lower()
             if kw_lower not in self.category_keywords.get(category, []):
@@ -51,22 +47,19 @@ class ContextClassifier:
                 print(f"[ML ADAPTATION] Learned new keyword: '{kw_lower}' for category {category.value}")
 
     def predict(self, package: PackageInput) -> MLPrediction:
-        """
-        Predicts package category and scores based on metadata and simple text analysis.
-        Uses a weighted scoring system to approximate a trained model.
-        """
+
         desc_lower = package.description.lower()
         predicted_category = PackageType.UNKNOWN
         
-        # 1. Determine Category (Keyword Matching with Priority)
-        # Check specific categories first
+        
+        
         for category in [PackageType.MEDICAL, PackageType.LEGAL, PackageType.ESSENTIAL, PackageType.COMMERCIAL, PackageType.PERSONAL]:
             keywords = self.category_keywords.get(category, [])
             if any(kw in desc_lower for kw in keywords):
                 predicted_category = category
                 break
         
-        # 2. Refine Category with Sender/Recipient if unknown or generic
+        
         if predicted_category == PackageType.UNKNOWN:
             if "hospital" in package.sender.lower():
                 predicted_category = PackageType.MEDICAL
@@ -77,15 +70,15 @@ class ContextClassifier:
             else:
                 predicted_category = PackageType.PERSONAL
         
-        # 3. Calculate Urgency Base Score
-        # Content Utility Score
+        
+        
         content_score = 0.2
         if predicted_category == PackageType.MEDICAL: content_score = 0.85
         elif predicted_category == PackageType.LEGAL: content_score = 0.7
         elif predicted_category == PackageType.ESSENTIAL: content_score = 0.6
         elif predicted_category == PackageType.COMMERCIAL: content_score = 0.3
         
-        # Metadata Scores
+        
         sender_score = 0.2
         for key, val in self.sender_weights.items():
             if key in package.sender.lower():
@@ -100,14 +93,14 @@ class ContextClassifier:
         
         urgency_score = (0.5 * content_score) + (0.25 * sender_score) + (0.25 * recipient_score)
 
-        # Modifiers
+        
         if "urgent" in desc_lower or "express" in desc_lower:
             urgency_score = min(urgency_score + 0.15, 0.95)
         
         if package.metadata.get("express_delivery_requested"):
             urgency_score = min(urgency_score + 0.1, 0.98)
 
-        # Harm Score Correlation
+        
         harm_score = urgency_score * 0.8 
         if predicted_category == PackageType.MEDICAL: 
             harm_score = urgency_score 

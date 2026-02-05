@@ -7,10 +7,11 @@ import AdminDashboard from './pages/AdminDashboard';
 
 import SellerDashboard from './pages/SellerDashboard';
 import DeliveryAgentDashboard from './pages/DeliveryAgentDashboard';
+import AgentNavigation from './pages/AgentNavigation';
 
 import MyOrders from './pages/MyOrders';
 
-// Protected Route Component
+
 const ProtectedRoute = ({ children, roles }) => {
   const { user, loading } = useAuth();
 
@@ -21,8 +22,8 @@ const ProtectedRoute = ({ children, roles }) => {
   return children;
 };
 
-// Placeholder for Agent/Seller
-// REMOVED Placeholders
+
+
 
 function App() {
   return (
@@ -31,7 +32,7 @@ function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           
-          {/* Customer Routes */}
+          {}
           <Route path="/customer" element={
             <ProtectedRoute roles={['customer']}>
               <Navigate to="/customer/products" replace />
@@ -50,28 +51,34 @@ function App() {
             </ProtectedRoute>
           } />
           
-          {/* Admin Routes */}
+          {}
           <Route path="/admin" element={
             <ProtectedRoute roles={['admin']}>
               <AdminDashboard />
             </ProtectedRoute>
           } />
           
-          {/* Seller Route */}
+          {}
           <Route path="/seller" element={
             <ProtectedRoute roles={['seller']}>
                <SellerDashboard />
             </ProtectedRoute>
           } />
           
-          {/* Delivery Agent Route */}
+          {}
           <Route path="/agent" element={
             <ProtectedRoute roles={['delivery_agent']}>
                <DeliveryAgentDashboard />
             </ProtectedRoute>
           } />
+          
+          <Route path="/agent/navigation/:orderId" element={
+            <ProtectedRoute roles={['delivery_agent']}>
+               <AgentNavigation />
+            </ProtectedRoute>
+          } />
 
-          {/* Default Redirect */}
+          {}
           <Route path="/" element={<Navigate to="/login" />} />
         </Routes>
       </Router>

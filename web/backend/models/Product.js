@@ -2,12 +2,12 @@ const mongoose = require('mongoose');
 
 const ProductSchema = new mongoose.Schema({
   name: { type: String, required: true },
-  base_description: { type: String, required: true }, // The GROUND TRUTH for AI
+  base_description: { type: String, required: true }, 
   price: { type: Number, required: true },
   seller: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   stock_quantity: { type: Number, required: true, default: 0 },
   
-  // Phase 5 Enhanced: Seller Ground Truth Location
+  
   seller_location: {
     address: { type: String },
     city: { type: String },

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { Truck, MapPin, Navigation, Package, CheckCircle, Power, User } from 'lucide-react';
@@ -7,6 +8,7 @@ import FixedLocationPicker from '../components/FixedLocationPicker';
 
 const DeliveryAgentDashboard = () => {
     const { user, logout } = useAuth();
+    const navigate = useNavigate();
     const [availableOrders, setAvailableOrders] = useState([]);
     const [myDelivery, setMyDelivery] = useState(null);
     const [isAvailable, setIsAvailable] = useState(false);
@@ -15,7 +17,7 @@ const DeliveryAgentDashboard = () => {
     const API_URL = 'http://localhost:5000/api';
 
     useEffect(() => {
-         // Initial data fetch
+         
          fetchAvailableOrders();
          fetchMyActiveDelivery();
 
@@ -24,14 +26,14 @@ const DeliveryAgentDashboard = () => {
          socket.on('delivery_assigned', (order) => {
              if (order.assigned_to === user.id || order.assigned_to?._id === user.id) {
                  setMyDelivery(order);
-                 // Remove from available list if it was there
+                 
                  setAvailableOrders(prev => prev.filter(o => o._id !== order._id));
              }
          });
 
          socket.on('order_ready_for_pickup', (order) => {
-             // Add to available orders if not assigned
-             if (!order.assigned_to) {
+             
+             if (order.assigned_to === user.id || order.assigned_to?._id === user.id) {
                 setAvailableOrders(prev => [order, ...prev]);
              }
          });
@@ -45,9 +47,13 @@ const DeliveryAgentDashboard = () => {
             const res = await axios.get(`${API_URL}/orders`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            // Filter for orders ready for pickup and unassigned
-            const ready = res.data.filter(o => o.status === 'READY_FOR_PICKUP' && !o.assigned_to);
-            setAvailableOrders(ready);
+            
+            
+            const myOrders = res.data.filter(o => 
+                (o.assigned_to === user.id || o.assigned_to?._id === user.id) && 
+                o.status !== 'DELIVERED'
+            );
+            setAvailableOrders(myOrders);
         } catch (err) {
             console.error(err);
         } finally {
@@ -58,11 +64,11 @@ const DeliveryAgentDashboard = () => {
     const fetchMyActiveDelivery = async () => {
         try {
             const token = localStorage.getItem('token');
-            // In a real app we would have a specific endpoint, here we filter the orders
+            
             const res = await axios.get(`${API_URL}/orders`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            // Find active delivery (assigned to me and not delivered)
+            
             const active = res.data.find(o => 
                 (o.assigned_to === user.id || o.assigned_to?._id === user.id) && 
                 o.status !== 'DELIVERED'
@@ -78,10 +84,10 @@ const DeliveryAgentDashboard = () => {
 
     const handleToggleClick = () => {
         if (isAvailable) {
-            // Going Offline
+            
             updateAgentStatus(false, 0, 0);
         } else {
-            // Going Online - Needs Location
+            
             setLocationModalOpen(true);
         }
     };
@@ -110,18 +116,22 @@ const DeliveryAgentDashboard = () => {
         updateAgentStatus(true, mapLocation.latitude, mapLocation.longitude);
     };
 
-    const acceptOrder = async (orderId) => {
+    
+    const markAsDelivered = async (orderId) => {
         try {
             const token = localStorage.getItem('token');
-            await axios.patch(`${API_URL}/orders/${orderId}/assign`, {}, {
+            await axios.patch(`${API_URL}/orders/${orderId}/status`, { status: "DELIVERED" }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            // State update via socket usually, but optimistic update here
-            const order = availableOrders.find(o => o._id === orderId);
-            setMyDelivery({...order, assigned_to: user.id, status: 'OUT_FOR_DELIVERY'});
+            
+            alert("Order marked as Delivered!");
+            
             setAvailableOrders(prev => prev.filter(o => o._id !== orderId));
+            if (myDelivery && myDelivery._id === orderId) {
+                setMyDelivery(null);
+            }
         } catch (err) {
-            alert("Failed to accept order");
+            alert("Failed to update status: " + err.message);
         }
     };
 
@@ -135,6 +145,8 @@ const DeliveryAgentDashboard = () => {
              if (status === 'DELIVERED') {
                  setMyDelivery(null);
                  alert("Delivery Completed! Great job.");
+                 
+                 setAvailableOrders(prev => prev.filter(o => o._id !== myDelivery._id));
              } else {
                  setMyDelivery(prev => ({ ...prev, status }));
              }
@@ -145,7 +157,7 @@ const DeliveryAgentDashboard = () => {
 
     return (
         <div className="min-h-screen bg-gray-100 font-sans text-slate-900 pb-20">
-            {/* Mobile Header */}
+            {}
             <header className="bg-slate-900 text-white p-4 sticky top-0 z-20 shadow-md">
                 <div className="flex justify-between items-center max-w-md mx-auto">
                     <div className="flex items-center gap-2">
@@ -161,7 +173,7 @@ const DeliveryAgentDashboard = () => {
 
             <main className="max-w-md mx-auto p-4 space-y-6">
                 
-                {/* STATUS TOGGLE */}
+                {}
                 <div className="card-base p-4 flex items-center justify-between">
                     <div>
                         <h2 className="font-bold text-slate-900">Availability Status</h2>
@@ -175,7 +187,7 @@ const DeliveryAgentDashboard = () => {
                     </button>
                 </div>
 
-                {/* LOCATION MODAL */}
+                {}
                 {locationModalOpen && (
                     <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
                         <div className="bg-white rounded-xl w-full max-w-sm p-5 animate-in slide-in-from-bottom-5">
@@ -201,7 +213,7 @@ const DeliveryAgentDashboard = () => {
                     </div>
                 )}
 
-                {/* CURRENT TASK */}
+                {}
                 {myDelivery && (
                     <div className="bg-indigo-600 rounded-xl shadow-lg text-white overflow-hidden">
                         <div className="p-4 border-b border-indigo-500 bg-indigo-700/50 flex justify-between items-center">
@@ -216,12 +228,47 @@ const DeliveryAgentDashboard = () => {
                                 <p className="text-lg font-bold leading-tight mb-1">{myDelivery.user?.name}</p>
                                 <div className="flex items-start gap-2 opacity-90">
                                     <MapPin size={16} className="mt-0.5 shrink-0" />
-                                    <p className="text-sm">{myDelivery.customer_location?.address || "GPS Location Only"}</p>
+                                    <p className="text-sm">{
+                                        myDelivery.status === 'READY_FOR_PICKUP' 
+                                            ? `Pickup: ${myDelivery.seller?.name || 'Seller'}` 
+                                            : (myDelivery.customer_location?.address || "GPS Location Only")
+                                    }</p>
                                 </div>
+                                {(() => {
+                                    
+                                    let lat, lon, label;
+                                    if (myDelivery.status === 'READY_FOR_PICKUP') {
+                                        
+                                        if (myDelivery.seller?.location?.coordinates) {
+                                            lon = myDelivery.seller.location.coordinates[0];
+                                            lat = myDelivery.seller.location.coordinates[1];
+                                            label = "Navigate to Shop";
+                                        }
+                                    } else {
+                                        
+                                        if (myDelivery.customer_location?.latitude) {
+                                            lat = myDelivery.customer_location.latitude;
+                                            lon = myDelivery.customer_location.longitude;
+                                            label = "Navigate to Customer";
+                                        }
+                                    }
+
+                                    if (lat && lon) {
+                                        return (
+                                            <button 
+                                                onClick={() => navigate(`/agent/navigation/${myDelivery._id}`)}
+                                                className="text-xs font-bold text-indigo-200 hover:text-white flex items-center gap-1 mt-2 underline"
+                                            >
+                                                <Navigation size={12} /> {label}
+                                            </button>
+                                        );
+                                    }
+                                    return null;
+                                })()}
                             </div>
 
                             <div className="grid grid-cols-2 gap-3">
-                                {myDelivery.status === 'OUT_FOR_DELIVERY' && (
+                                {myDelivery.status === 'IN_TRANSIT' && (
                                      <button 
                                         onClick={() => updateStatus('DELIVERED')}
                                         className="col-span-2 bg-white text-indigo-700 py-3 rounded-lg font-bold shadow-sm hover:bg-gray-50 active:scale-95 transition-all text-sm flex items-center justify-center gap-2"
@@ -229,9 +276,9 @@ const DeliveryAgentDashboard = () => {
                                          <CheckCircle size={18} /> Mark Delivered
                                      </button>
                                 )}
-                                {myDelivery.status !== 'OUT_FOR_DELIVERY' && (
+                                {myDelivery.status !== 'IN_TRANSIT' && (
                                     <button 
-                                        onClick={() => updateStatus('OUT_FOR_DELIVERY')}
+                                        onClick={() => updateStatus('IN_TRANSIT')}
                                         className="col-span-2 bg-white text-indigo-700 py-3 rounded-lg font-bold shadow-sm hover:bg-gray-50 active:scale-95 transition-all text-sm"
                                     >
                                         Start Delivery
@@ -242,28 +289,32 @@ const DeliveryAgentDashboard = () => {
                     </div>
                 )}
 
-                {/* AVAILABLE ORDERS */}
+                {}
                 <div>
                     <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
-                        <Package size={18} /> Available for Pickup
+                        <Package size={18} /> My Assigned Deliveries
                     </h3>
                     
                     {loading ? (
-                        <p className="text-center text-slate-400 py-4">Finding orders...</p>
-                    ) : availableOrders.length === 0 ? (
+                        <p className="text-center text-slate-400 py-4">Loading assignments...</p>
+                    ) : availableOrders.filter(o => !myDelivery || o._id !== myDelivery._id).length === 0 && !myDelivery ? (
                         <div className="text-center py-10 bg-white rounded-xl border border-dashed border-gray-300 text-slate-400">
-                            <p>No orders in your area yet.</p>
+                            <p>No deliveries assigned yet.</p>
                         </div>
                     ) : (
                         <div className="space-y-4">
-                            {availableOrders.map(order => (
-                                <div key={order._id} className="card-base p-4 border-l-4 border-l-green-500">
+                            {}
+                            {availableOrders.filter(o => !myDelivery || o._id !== myDelivery._id).map(order => (
+                                <div key={order._id} className="card-base p-4 border-l-4 border-l-indigo-500">
                                     <div className="flex justify-between items-start mb-3">
                                         <div>
                                             <h4 className="font-bold text-slate-900">{order.user?.name}</h4>
                                             <p className="text-xs text-slate-500">{order.customer_location?.city || "Local Delivery"}</p>
                                         </div>
-                                        <span className="font-mono font-bold text-slate-900">${order.total_amount}</span>
+                                        <div className="text-right">
+                                            <span className="font-mono font-bold text-slate-900 block">${order.total_amount}</span>
+                                            <span className="text-[10px] text-slate-500 font-bold uppercase">{order.status.replace(/_/g, " ")}</span>
+                                        </div>
                                     </div>
                                     
                                     <div className="bg-gray-50 p-2 rounded text-xs text-slate-600 mb-4 line-clamp-2">
@@ -271,10 +322,10 @@ const DeliveryAgentDashboard = () => {
                                     </div>
 
                                     <button 
-                                        onClick={() => acceptOrder(order._id)}
-                                        className="w-full bg-slate-900 text-white py-2.5 rounded-lg font-bold text-sm hover:bg-slate-800 active:scale-95 transition-all shadow-sm"
+                                        onClick={() => markAsDelivered(order._id)}
+                                        className="w-full bg-slate-900 text-white py-2.5 rounded-lg font-bold text-sm hover:bg-slate-800 active:scale-95 transition-all shadow-sm flex items-center justify-center gap-2"
                                     >
-                                        Accept Job
+                                        <CheckCircle size={16} /> Mark as Delivered
                                     </button>
                                 </div>
                             ))}
